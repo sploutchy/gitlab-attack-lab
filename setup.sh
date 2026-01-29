@@ -54,7 +54,7 @@ while true; do
         echo -e "  Waiting... (${ATTEMPT}s elapsed) - Container: $STATUS"
     fi
     sleep 1
-fi
+done
 echo ""
 
 # Step 3: Set root password and create admin token
