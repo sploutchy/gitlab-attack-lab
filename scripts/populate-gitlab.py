@@ -203,8 +203,29 @@ scan:
 
     def create_runner(self, runner_cfg: Dict[str, Any]) -> Optional[str]:
         """Create a runner and return its authentication token"""
+        scope = runner_cfg.get('scope', 'instance')
+        scope_target = runner_cfg.get('scope_target')
+        
+        # Determine runner type and group/project ID
+        runner_type = 'instance_type'
+        group_id = None
+        project_id = None
+        
+        if scope == 'group' and scope_target:
+            runner_type = 'group_type'
+            group_id = self.groups_map.get(scope_target)
+            if not group_id:
+                self.log("ERROR", f"Group not found: {scope_target}")
+                return None
+        elif scope == 'project' and scope_target:
+            runner_type = 'project_type'
+            project_id = self.projects_map.get(scope_target)
+            if not project_id:
+                self.log("ERROR", f"Project not found: {scope_target}")
+                return None
+        
         data = {
-            'runner_type': 'instance_type',
+            'runner_type': runner_type,
             'description': runner_cfg.get('description', 'runner'),
             'tag_list': runner_cfg.get('tags', []),
             'run_untagged': runner_cfg.get('run_untagged', True),
@@ -212,10 +233,16 @@ scan:
             'access_level': runner_cfg.get('access_level', 'not_protected'),
         }
         
+        if group_id:
+            data['group_id'] = group_id
+        if project_id:
+            data['project_id'] = project_id
+        
         result = self.api_call('POST', 'user/runners', data)
         if result:
             token = result.get('token')
-            self.log("OK", f"Created runner: {runner_cfg.get('description')} (token: {token[:12]}...)")
+            scope_info = f" ({scope}" + (f": {scope_target}" if scope_target else "") + ")"
+            self.log("OK", f"Created runner: {runner_cfg.get('description')}{scope_info} (token: {token[:12]}...)")
             return token
         else:
             self.log("ERROR", f"Failed to create runner: {runner_cfg.get('description')}")

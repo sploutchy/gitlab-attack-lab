@@ -68,8 +68,10 @@ groups:
         access_level: 30  # Developer
 
 runners:
+  # Instance-wide runner (available to all projects)
   - description: shared-docker-runner
     executor: docker
+    scope: instance
     tags:
       - docker
       - linux
@@ -78,8 +80,11 @@ runners:
     locked: false
     access_level: not_protected
 
+  # Group-specific runner (only for development-team)
   - description: shell-runner
     executor: shell
+    scope: group
+    scope_target: development-team
     tags:
       - shell
       - privileged
