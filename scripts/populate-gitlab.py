@@ -277,19 +277,36 @@ scan:
         return tokens
 
     def _create_file(self, project_id: int, file_path: str, content: str, branch: str, commit_message: str) -> bool:
-        """Create a file in the repository"""
-        data = {
-            'branch': branch,
-            'content': content,
-            'commit_message': commit_message
-        }
+        """Create or update a file in the repository"""
+        # First check if file exists
+        encoded_path = file_path.replace('/', '%2F')
+        existing = self.api_call('GET', f'projects/{project_id}/repository/files/{encoded_path}', params={'ref': branch})
+        
+        if existing:
+            # File exists, update it - must include last_commit_id
+            data = {
+                'branch': branch,
+                'content': content,
+                'commit_message': commit_message,
+                'last_commit_id': existing.get('last_commit_id') or existing.get('commit_id')
+            }
+            result = self.api_call('PUT', f'projects/{project_id}/repository/files/{encoded_path}', data)
+            if result:
+                self.log("OK", f"Updated {file_path} in project {project_id}")
+                return True
+        else:
+            # File doesn't exist, create it
+            data = {
+                'branch': branch,
+                'content': content,
+                'commit_message': commit_message
+            }
+            result = self.api_call('POST', f'projects/{project_id}/repository/files/{encoded_path}', data)
+            if result:
+                self.log("OK", f"Created {file_path} in project {project_id}")
+                return True
 
-        result = self.api_call('POST', f'projects/{project_id}/repository/files/{file_path}', data)
-        if result:
-            self.log("OK", f"Created {file_path} in project {project_id}")
-            return True
-
-        self.log("WARN", f"Failed to create {file_path} in project {project_id}")
+        self.log("WARN", f"Failed to create/update {file_path} in project {project_id}")
         return False
 
     def _ensure_ci_config(self, project_id: int, project_path: str, default_branch: Optional[str]):
@@ -532,11 +549,19 @@ scan:
     
     def _add_project_variable(self, project_id: int, variable: Dict):
         """Add a CI/CD variable to a project"""
+        # Masked variables must be at least 8 characters long
+        value = variable['value']
+        is_masked = variable.get('masked', False)
+        
+        if is_masked and len(value) < 8:
+            self.log("WARN", f"Variable {variable['key']} cannot be masked (value too short, minimum 8 characters)")
+            is_masked = False
+        
         data = {
             'key': variable['key'],
-            'value': variable['value'],
+            'value': value,
             'protected': variable.get('protected', False),
-            'masked': variable.get('masked', False)
+            'masked': is_masked
         }
         
         result = self.api_call('POST', f'projects/{project_id}/variables', data)

@@ -62,7 +62,7 @@ services:
       - lab-network
     environment:
       RUNNER_TOKEN_DOCKER: "${RUNNER_TOKEN_DOCKER}"
-      GITLAB_URL: "http://gitlab/"
+      GITLAB_URL: "${GITLAB_URL:-http://gitlab/}"
     depends_on:
       gitlab:
         condition: service_healthy
@@ -105,7 +105,7 @@ services:
       - lab-network
     environment:
       RUNNER_TOKEN_SHELL: "${RUNNER_TOKEN_SHELL}"
-      GITLAB_URL: "http://gitlab/"
+      GITLAB_URL: "${GITLAB_URL:-http://gitlab/}"
     depends_on:
       gitlab:
         condition: service_healthy

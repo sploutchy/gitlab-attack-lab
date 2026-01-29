@@ -159,7 +159,7 @@ projects:
         protected: false
         masked: false
       - key: SIGNING_KEY
-        value: "-----BEGIN PRIVATE KEY-----"
+        value: "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDExample"
         protected: true
         masked: true
         

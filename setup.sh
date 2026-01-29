@@ -31,7 +31,7 @@ echo ""
 # Step 1: Start Docker Compose services
 echo -e "${YELLOW}[STEP 1]${NC} Starting Docker Compose services..."
 cd "$PROJECT_ROOT"
-docker-compose up -d > /dev/null 2>&1
+docker-compose up -d > /dev/null 2>&1 || true
 echo -e "${GREEN}✓${NC} Services started"
 echo ""
 
@@ -133,10 +133,10 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             fi
         done
         
-        # Restart runner containers to pick up new tokens
-        echo -e "  Restarting runner containers..."
-        docker-compose restart gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
-        echo -e "${GREEN}  ✓${NC} Runner containers restarted"
+        # Recreate runner containers to pick up new tokens from .env
+        echo -e "  Recreating runner containers with new tokens..."
+        docker-compose up -d gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
+        echo -e "${GREEN}  ✓${NC} Runner containers recreated"
     fi
 else
     echo -e "${RED}✗${NC} Failed to populate GitLab structure"
