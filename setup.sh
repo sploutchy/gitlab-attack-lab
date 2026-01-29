@@ -67,7 +67,7 @@ echo -e "${YELLOW}[STEP 3]${NC} Setting root password and creating admin token..
 # First, set the root password
 echo -e "  Setting password..."
 docker exec gitlab-attack-lab gitlab-rails runner \
-    'u=User.find_by(username:"root");u.update(password:"Lab@Admin2024",password_confirmation:"Lab@Admin2024");puts "Password set"' 2>&1 | grep -q "Password set" && echo -e "${GREEN}  ✓${NC} Password set" || echo -e "${YELLOW}  Note: Password may already be set${NC}"
+    'u=User.find_by(username:"root");u.update(password:"R00t@L4b_Adm1n_2024",password_confirmation:"R00t@L4b_Adm1n_2024");puts "Password set"' 2>&1 | grep -q "Password set" && echo -e "${GREEN}  ✓${NC} Password set" || echo -e "${YELLOW}  Note: Password may already be set${NC}"
 
 # Wait a moment for the user to be ready
 sleep 2
@@ -139,7 +139,7 @@ docker exec pentester bash -c "cat >> ~/.bashrc << 'BASHRC'
 # GitLab Lab Credentials
 export GITLAB_URL=\"http://gitlab\"
 export GITLAB_USER=\"root\"
-export GITLAB_PASSWORD=\"Lab@Admin2024\"
+export GITLAB_PASSWORD=\"R00t@L4b_Adm1n_2024\"
 export PENTESTER_USER=\"pentester\"
 export PENTESTER_PASSWORD=\"SecureP3nt3st3r@2024!\"
 
@@ -174,7 +174,7 @@ echo ""
 echo -e "${YELLOW}Access GitLab:${NC}"
 echo "  URL:      http://127.0.0.1"
 echo "  Username: root"
-echo "  Password: Lab@Admin2024"
+echo "  Password: R00t@L4b_Adm1n_2024"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
 echo "  1. Open GitLab in your browser: http://127.0.0.1"

@@ -58,7 +58,7 @@ http://127.0.0.1
 
 # Login with:
 Username: root
-Password: Lab@Admin2024
+Password: R00t@L4b_Adm1n_2024
 ```
 
 **What to explore:**
@@ -306,7 +306,7 @@ See actual pipeline execution logs:
 ### Users (4 total)
 | User | Password | Role |
 |------|----------|------|
-| root | Lab@Admin2024 | Administrator |
+| root | R00t@L4b_Adm1n_2024 | Administrator |
 | alice | SecurePass2024! | Developer |
 | bob | SecurePass2024! | Maintainer |
 | charlie | SecurePass2024! | Guest |
@@ -439,7 +439,7 @@ curl http://127.0.0.1/api/v4/version
 # 4. Everything is auto-populated! You're ready to go
 # Login with:
 # Username: root
-# Password: Lab@Admin2024
+# Password: R00t@L4b_Adm1n_2024
 ```
 
 ### Verify Cleanup
