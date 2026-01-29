@@ -1,0 +1,63 @@
+name: GitLab Attack Lab - Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests pyyaml pytest pytest-timeout
+      
+      - name: Start GitLab Attack Lab
+        run: |
+          echo "Starting lab environment..."
+          make setup
+        timeout-minutes: 15
+      
+      - name: Wait for services to stabilize
+        run: sleep 30
+      
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/ -v --timeout=300 --tb=short
+      
+      - name: Check runner status
+        if: always()
+        run: |
+          echo "=== Runner Logs (Docker) ==="
+          docker logs gitlab-runner-docker 2>&1 | tail -50 || true
+          echo ""
+          echo "=== Runner Logs (Shell) ==="
+          docker logs gitlab-runner-shell 2>&1 | tail -50 || true
+      
+      - name: Check GitLab logs on failure
+        if: failure()
+        run: |
+          echo "=== GitLab Logs ==="
+          docker-compose logs --tail=100 gitlab || true
+          echo ""
+          echo "=== Container Status ==="
+          docker-compose ps || true
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          make destroy || true

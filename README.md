@@ -808,12 +808,44 @@ Then restart: `docker-compose down && docker-compose up -d`
 - Lab data contains fake but realistic secrets - never use real credentials
 - Regularly clean up old pipelines and artifacts to save space
 
+## 🧪 Testing
+
+The project includes a comprehensive test suite that validates all components:
+
+### Running Tests Locally
+
+```bash
+# Standalone integration test
+python tests/test_integration.py
+
+# Pytest suite (recommended)
+pytest tests/ -v
+
+# With timeout protection
+pytest tests/ -v --timeout=300
+```
+
+### Test Coverage
+
+The test suite validates:
+- ✅ GitLab health and API authentication
+- ✅ All users created correctly
+- ✅ All groups and memberships configured
+- ✅ All projects created with repositories imported
+- ✅ CI/CD variables and configurations
+- ✅ Runners registered and online
+- ✅ Pipeleek installed and configured
+
+### CI/CD Testing
+
+Tests run automatically in GitHub Actions on every push and PR. See [tests/README.md](tests/README.md) for details.
+
 ## Documentation
 
 - [PLAN.md](PLAN.md) - Full project plan and design
-- [docs/USAGE.md](docs/USAGE.md) - Detailed usage guide
-- [docs/TESTING.md](docs/TESTING.md) - Testing procedures
-- [docs/pipeleek-commands.md](docs/pipeleek-commands.md) - Pipeleek command reference
+- [tests/README.md](tests/README.md) - Test suite documentation
+- [docs/USAGE.md](docs/USAGE.md) - Detailed usage guide (if exists)
+- [docs/TESTING.md](docs/TESTING.md) - Testing procedures (if exists)
 
 ## Support & Issues
 
