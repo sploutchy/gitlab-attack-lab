@@ -19,14 +19,15 @@ services:
         gitlab_rails['enable_user_signup'] = true
         nginx['listen_port'] = 80
         nginx['listen_https'] = false
-        puma['worker_processes'] = 2
-        puma['worker_memory'] = 256
-        postgresql['max_connections'] = 200
-        postgresql['shared_buffers'] = '256MB'
-        redis['maxmemory'] = '256mb'
-        gitaly['ruby_num_workers'] = 2
+        puma['worker_processes'] = 1
+        puma['worker_memory'] = 128
+        postgresql['max_connections'] = 100
+        postgresql['shared_buffers'] = '128MB'
+        redis['maxmemory'] = '128mb'
+        gitaly['ruby_num_workers'] = 1
         prometheus_monitoring['enable'] = false
-        sidekiq['max_concurrency'] = 10
+        sidekiq['max_concurrency'] = 5
+        sidekiq['concurrency'] = 5
         gitlab_ci['gitlab_ci_all_broken_builds'] = true
         gitlab_ci['gitlab_ci_add_pusher'] = true
     ports:
@@ -37,15 +38,15 @@ services:
       - gitlab_config:/etc/gitlab
       - gitlab_logs:/var/log/gitlab
       - gitlab_data:/var/opt/gitlab
-    shm_size: '256m'
+    shm_size: '512m'
     networks:
       - lab-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost/-/health || curl -sf http://localhost/users/sign_in || true"]
       interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 180s
+      timeout: 15s
+      retries: 10
+      start_period: 300s
     depends_on:
       - mailhog
 

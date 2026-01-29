@@ -42,18 +42,17 @@ ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
     
-    # Check if GitLab container is healthy
-    if docker-compose ps gitlab 2>/dev/null | grep -q "healthy"; then
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/v4/version" 2>/dev/null || echo "000")
-        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
-            echo -e "${GREEN}✓${NC} GitLab is ready (took ${ATTEMPT}s)"
-            break
-        fi
+    # Try to access GitLab API - don't require container to be healthy, just accessible
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/v4/version" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
+        echo -e "${GREEN}✓${NC} GitLab is ready (took ${ATTEMPT}s)"
+        break
     fi
     
     # Show progress every 30 seconds
     if [ $((ATTEMPT % 30)) -eq 0 ]; then
-        echo -e "  Waiting... (${ATTEMPT}s / ${MAX_ATTEMPTS}s max)"
+        STATUS=$(docker-compose ps gitlab 2>/dev/null | tail -1 | awk '{print $NF}' || echo "unknown")
+        echo -e "  Waiting... (${ATTEMPT}s / ${MAX_ATTEMPTS}s max) - Container: $STATUS"
     fi
     sleep 1
 done
@@ -62,8 +61,8 @@ if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
     echo -e "${RED}✗${NC} GitLab failed to initialize after $MAX_ATTEMPTS seconds"
     echo -e "${YELLOW}Checking container status...${NC}"
     docker-compose ps 2>/dev/null || true
-    echo -e "${YELLOW}Checking GitLab logs...${NC}"
-    docker-compose logs --tail=100 gitlab 2>/dev/null || true
+    echo -e "${YELLOW}Checking GitLab logs (last 150 lines)...${NC}"
+    docker-compose logs --tail=150 gitlab 2>/dev/null | tail -150 || true
     exit 1
 fi
 echo ""
