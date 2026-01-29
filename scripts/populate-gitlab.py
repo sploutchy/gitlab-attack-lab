@@ -429,7 +429,7 @@ scan:
             'wiki_enabled': project.get('wiki_enabled', False),
             'snippets_enabled': project.get('snippets_enabled', False),
             'builds_enabled': project.get('ci_cd_enabled', False),
-            'initialize_with_readme': True,  # Always initialize with README
+            'initialize_with_readme': not repo_url,  # Only init README if no import
             'default_branch': project.get('default_branch', 'main')
         }
         
@@ -443,25 +443,71 @@ scan:
         result = self.api_call('POST', 'projects', data)
         if result:
             project_id = result['id']
+            project_path_with_namespace = result['path_with_namespace']
             self.projects_map[project['path']] = project_id
             self.log("OK", f"Created project: {project['name']} (ID: {project_id})")
             
-            # Note: repo_url import is skipped as it requires special permissions
-            # Projects are created with README and will have CI configs added
+            # Import repository if URL specified
             if repo_url:
-                self.log("INFO", f"Note: repo_url specified but import skipped (requires admin permissions)")
+                self._import_via_git_clone(project_id, project_path_with_namespace, repo_url)
 
             # Add variables
             for var in project.get('variables', []):
                 self._add_project_variable(project_id, var)
 
-            # Add default CI config
+            # Add default CI config (only if repo didn't have one)
             self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
             
             return project_id
         else:
             self.log("WARN", f"Failed to create project: {project['name']}")
             return None
+    
+    def _import_via_git_clone(self, project_id: int, project_path: str, repo_url: str):
+        """Import repository by cloning and pushing"""
+        import subprocess
+        import tempfile
+        import shutil
+        
+        temp_dir = tempfile.mkdtemp()
+        try:
+            self.log("INFO", f"Cloning {repo_url}...")
+            
+            # Clone the source repository
+            subprocess.run(
+                ['git', 'clone', '--bare', repo_url, temp_dir],
+                check=True,
+                capture_output=True,
+                timeout=120
+            )
+            
+            # Get project URL with token
+            gitlab_repo_url = f"http://oauth2:{self.admin_token}@gitlab//{project_path}.git"
+            
+            # Push to GitLab
+            self.log("INFO", f"Pushing to GitLab project {project_path}...")
+            subprocess.run(
+                ['git', 'push', '--mirror', gitlab_repo_url],
+                cwd=temp_dir,
+                check=True,
+                capture_output=True,
+                timeout=120
+            )
+            
+            self.log("OK", f"Repository imported successfully for project {project_id}")
+            
+        except subprocess.TimeoutExpired:
+            self.log("ERROR", f"Import timeout for project {project_id}")
+        except subprocess.CalledProcessError as e:
+            self.log("ERROR", f"Import failed for project {project_id}: {e.stderr.decode() if e.stderr else str(e)}")
+        except Exception as e:
+            self.log("ERROR", f"Import error for project {project_id}: {str(e)}")
+        finally:
+            # Cleanup temp directory
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
     
     def _import_repository(self, project_id: int, repo_url: str):
         """Import a repository into an existing project"""
