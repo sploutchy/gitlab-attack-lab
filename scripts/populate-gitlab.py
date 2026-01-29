@@ -326,6 +326,14 @@ scan:
     
     def create_user(self, user: Dict) -> Optional[int]:
         """Create a user in GitLab"""
+        # Check if user already exists
+        existing = self.api_call('GET', f'users?username={user["username"]}')
+        if existing and len(existing) > 0:
+            user_id = existing[0]['id']
+            self.users_map[user['username']] = user_id
+            self.log("OK", f"User already exists: {user['username']} (ID: {user_id})")
+            return user_id
+        
         data = {
             'username': user['username'],
             'email': user['email'],
@@ -352,6 +360,19 @@ scan:
     
     def create_group(self, group: Dict) -> Optional[int]:
         """Create a group in GitLab"""
+        # Check if group already exists
+        existing = self.api_call('GET', f'groups?search={group["path"]}')
+        if existing and len(existing) > 0:
+            for g in existing:
+                if g.get('path') == group['path']:
+                    group_id = g['id']
+                    self.groups_map[group['path']] = group_id
+                    self.log("OK", f"Group already exists: {group['name']} (ID: {group_id})")
+                    # Still add members
+                    for member in group.get('members', []):
+                        self._add_group_member(group_id, member)
+                    return group_id
+        
         data = {
             'name': group['name'],
             'path': group['path'],
@@ -471,7 +492,17 @@ scan:
             self.log("ERROR", "Please ensure GITLAB_ADMIN_TOKEN in .env is valid")
             return False
         
-        self.log("OK", f"Authenticated successfully with GitLab v{result.get('version', 'unknown')}")
+        # Check if current user is admin
+        user_result = self.api_call('GET', 'user')
+        if user_result:
+            is_admin = user_result.get('is_admin', False)
+            username = user_result.get('username', 'unknown')
+            self.log("OK", f"Authenticated as {username} (admin: {is_admin})")
+            if not is_admin:
+                self.log("WARN", "Token user is not an admin - some operations may fail")
+        
+        self.log("OK", f"Connected to GitLab v{result.get('version', 'unknown')}")
+
         
         # Create users (skip root as it already exists)
         self.log("INFO", "Creating users...")
