@@ -19,121 +19,121 @@ class GitLabPopulator:
         self.users_map = {}  # Map username to user ID
         self.groups_map = {}  # Map group path to group ID
         self.projects_map = {}  # Map project path to project ID
-                self.ci_templates = self._build_ci_templates()
+        self.ci_templates = self._build_ci_templates()
 
-        def _build_ci_templates(self) -> Dict[str, str]:
-                """Build default CI templates for lab projects"""
-                return {
-                        'web-app': """image: node:18
+    def _build_ci_templates(self) -> Dict[str, str]:
+        """Build default CI templates for lab projects"""
+        return {
+            'web-app': """image: node:18
 
 stages:
-    - test
-    - build
-    - deploy
+  - test
+  - build
+  - deploy
 
 cache:
-    paths:
-        - node_modules/
+  paths:
+    - node_modules/
 
 test:
-    stage: test
-    script:
-        - npm ci
-        - npm test
+  stage: test
+  script:
+    - npm ci
+    - npm test
 
 build:
-    stage: build
-    script:
-        - npm run build
-    artifacts:
-        paths:
-            - dist/
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
 
 deploy:
-    stage: deploy
-    script:
-        - echo "Deploying to $DEPLOY_ENV"
-    only:
-        - main
+  stage: deploy
+  script:
+    - echo "Deploying to $DEPLOY_ENV"
+  only:
+    - main
 """,
-                        'api-service': """image: python:3.11
+            'api-service': """image: python:3.11
 
 stages:
-    - test
-    - build
+  - test
+  - build
 
 before_script:
-    - python -m pip install --upgrade pip
-    - pip install -r requirements.txt
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.txt
 
 tests:
-    stage: test
-    script:
-        - pytest -q
+  stage: test
+  script:
+    - pytest -q
 
 package:
-    stage: build
-    script:
-        - python -m pip install build
-        - python -m build
-    artifacts:
-        paths:
-            - dist/
+  stage: build
+  script:
+    - python -m pip install build
+    - python -m build
+  artifacts:
+    paths:
+      - dist/
 """,
-                        'mobile-app': """image: alpine:3.19
+            'mobile-app': """image: alpine:3.19
 
 stages:
-    - build
-    - release
+  - build
+  - release
 
 build:
-    stage: build
-    script:
-        - echo "Building mobile app for $BUILD_ENV"
-        - mkdir -p build && echo "artifact" > build/app.apk
-    artifacts:
-        paths:
-            - build/
+  stage: build
+  script:
+    - echo "Building mobile app for $BUILD_ENV"
+    - mkdir -p build && echo "artifact" > build/app.apk
+  artifacts:
+    paths:
+      - build/
 
 release:
-    stage: release
-    script:
-        - echo "Signing with key: $SIGNING_KEY"
-        - echo "Release complete"
-    only:
-        - main
+  stage: release
+  script:
+    - echo "Signing with key: $SIGNING_KEY"
+    - echo "Release complete"
+  only:
+    - main
 """,
-                        'infrastructure': """image: hashicorp/terraform:1.6
+            'infrastructure': """image: hashicorp/terraform:1.6
 
 stages:
-    - validate
-    - plan
+  - validate
+  - plan
 
 validate:
-    stage: validate
-    script:
-        - terraform init -backend=false
-        - terraform validate
+  stage: validate
+  script:
+    - terraform init -backend=false
+    - terraform validate
 
 plan:
-    stage: plan
-    script:
-        - terraform init -backend=false
-        - terraform plan -var "environment=$TF_VAR_environment"
+  stage: plan
+  script:
+    - terraform init -backend=false
+    - terraform plan -var "environment=$TF_VAR_environment"
 """,
-                        'security-tools': """image: alpine:3.19
+            'security-tools': """image: alpine:3.19
 
 stages:
-    - scan
+  - scan
 
 scan:
-    stage: scan
-    script:
-        - echo "Running security scan"
-        - echo "Using token: ${SCANNER_TOKEN:0:6}****"
-        - echo "Webhook: $REPORT_WEBHOOK"
+  stage: scan
+  script:
+    - echo "Running security scan"
+    - echo "Using token: ${SCANNER_TOKEN:0:6}****"
+    - echo "Webhook: $REPORT_WEBHOOK"
 """,
-                }
+        }
         
     def log(self, level: str, message: str):
         """Log message with level prefix"""
