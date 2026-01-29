@@ -64,18 +64,18 @@ echo ""
 # Step 3: Set root password and create admin token
 echo -e "${YELLOW}[STEP 3]${NC} Setting root password and creating admin token..."
 
-# First, set the root password
+# First, set the root password and ensure admin status
 echo -e "  Setting password..."
 docker exec gitlab-attack-lab gitlab-rails runner \
-    'u=User.find_by(username:"root");u.update(password:"R00t@L4b_Adm1n_2024",password_confirmation:"R00t@L4b_Adm1n_2024");puts "Password set"' 2>&1 | grep -q "Password set" && echo -e "${GREEN}  ✓${NC} Password set" || echo -e "${YELLOW}  Note: Password may already be set${NC}"
+    'u=User.find_by(username:"root");u.update(password:"R00t@L4b_Adm1n_2024",password_confirmation:"R00t@L4b_Adm1n_2024",admin:true);u.update(locked: false, state: :active);puts "Password set"' 2>&1 | grep -q "Password set" && echo -e "${GREEN}  ✓${NC} Password set" || echo -e "${YELLOW}  Note: Password may already be set${NC}"
 
 # Wait a moment for the user to be ready
 sleep 2
 
-# Create the admin token
+# Create the admin token with all scopes
 echo -e "  Creating admin token..."
 TOKEN_OUTPUT=$(docker exec gitlab-attack-lab gitlab-rails runner \
-    "user = User.find_by(username: 'root'); token = user.personal_access_tokens.create!(scopes: [:api, :read_user, :read_api, :read_repository, :write_repository, :sudo], name: 'lab-admin-token', expires_at: 1.year.from_now); puts token.token" 2>&1)
+    "user = User.find_by(username: 'root'); token = user.personal_access_tokens.create!(scopes: [:api, :read_user, :read_api, :read_repository, :write_repository, :admin_mode, :sudo], name: 'lab-admin-token', expires_at: 1.year.from_now); puts token.token" 2>&1)
 
 # Extract the token (last line of output)
 NEW_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "glpat-" | tail -1)

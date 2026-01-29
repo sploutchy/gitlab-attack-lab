@@ -155,7 +155,14 @@ scan:
             resp.raise_for_status()
             return resp.json() if resp.text else None
         except requests.exceptions.RequestException as e:
-            self.log("ERROR", f"API call failed: {e}")
+            error_msg = str(e)
+            try:
+                resp_text = e.response.text
+                if resp_text:
+                    error_msg += f" - {resp_text[:200]}"
+            except:
+                pass
+            self.log("ERROR", f"API call failed: {error_msg}")
             return None
 
     def _wait_for_import(self, project_id: int, max_attempts: int = 60) -> bool:
