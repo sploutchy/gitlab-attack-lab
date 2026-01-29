@@ -141,7 +141,12 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         
         # Recreate runner containers to pick up new tokens from .env
         echo -e "  Recreating runner containers with new tokens..."
-        docker-compose up -d gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
+        if docker-compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | grep -i error; then
+            # If there was an error, continue anyway - might just be that containers are already running
+            true
+        fi
+        # Give containers a moment to start
+        sleep 3
         echo -e "${GREEN}  ✓${NC} Runner containers recreated"
     fi
 else
