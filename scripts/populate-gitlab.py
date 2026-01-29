@@ -482,7 +482,7 @@ scan:
             )
             
             # Get project URL with token
-            gitlab_repo_url = f"http://oauth2:{self.admin_token}@gitlab//{project_path}.git"
+            gitlab_repo_url = f"http://oauth2:{self.admin_token}@gitlab/{project_path}.git"
             
             # Push to GitLab
             self.log("INFO", f"Pushing to GitLab project {project_path}...")

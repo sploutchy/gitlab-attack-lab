@@ -61,7 +61,7 @@ services:
     networks:
       - lab-network
     environment:
-      RUNNER_TOKEN: "${RUNNER_TOKEN_DOCKER}"
+      RUNNER_TOKEN_DOCKER: "${RUNNER_TOKEN_DOCKER}"
       GITLAB_URL: "http://gitlab/"
     depends_on:
       gitlab:
@@ -71,18 +71,16 @@ services:
       - -c
       - |
         # Wait for runner token to be available
-        while [ -z "$RUNNER_TOKEN" ]; do
+        while [ -z "$RUNNER_TOKEN_DOCKER" ]; do
           echo "Waiting for runner token to be set..."
           sleep 5
-          # Re-source environment in case it was updated
-          export RUNNER_TOKEN="${RUNNER_TOKEN_DOCKER}"
         done
         
         # Register runner with authentication token
         gitlab-runner register \
           --non-interactive \
           --url "$GITLAB_URL" \
-          --token "$RUNNER_TOKEN" \
+          --token "$RUNNER_TOKEN_DOCKER" \
           --executor docker \
           --docker-image ubuntu:latest \
           --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
@@ -106,7 +104,7 @@ services:
     networks:
       - lab-network
     environment:
-      RUNNER_TOKEN: "${RUNNER_TOKEN_SHELL}"
+      RUNNER_TOKEN_SHELL: "${RUNNER_TOKEN_SHELL}"
       GITLAB_URL: "http://gitlab/"
     depends_on:
       gitlab:
@@ -116,17 +114,16 @@ services:
       - -c
       - |
         # Wait for runner token to be available
-        while [ -z "$RUNNER_TOKEN" ]; do
+        while [ -z "$RUNNER_TOKEN_SHELL" ]; do
           echo "Waiting for runner token to be set..."
           sleep 5
-          export RUNNER_TOKEN="${RUNNER_TOKEN_SHELL}"
         done
         
         # Register runner with authentication token
         gitlab-runner register \
           --non-interactive \
           --url "$GITLAB_URL" \
-          --token "$RUNNER_TOKEN" \
+          --token "$RUNNER_TOKEN_SHELL" \
           --executor shell \
           --builds-dir /builds \
           --cache-dir /cache
