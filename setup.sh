@@ -37,9 +37,8 @@ echo ""
 
 # Step 2: Wait for GitLab to be healthy
 echo -e "${YELLOW}[STEP 2]${NC} Waiting for GitLab to initialize (this may take 5-10 minutes on CI)..."
-MAX_ATTEMPTS=900  # 15 minutes
 ATTEMPT=0
-while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+while true; do
     ATTEMPT=$((ATTEMPT + 1))
     
     # Try to access GitLab API - don't require container to be healthy, just accessible
@@ -52,18 +51,9 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     # Show progress every 30 seconds
     if [ $((ATTEMPT % 30)) -eq 0 ]; then
         STATUS=$(docker-compose ps gitlab 2>/dev/null | tail -1 | awk '{print $NF}' || echo "unknown")
-        echo -e "  Waiting... (${ATTEMPT}s / ${MAX_ATTEMPTS}s max) - Container: $STATUS"
+        echo -e "  Waiting... (${ATTEMPT}s elapsed) - Container: $STATUS"
     fi
     sleep 1
-done
-
-if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo -e "${RED}✗${NC} GitLab failed to initialize after $MAX_ATTEMPTS seconds"
-    echo -e "${YELLOW}Checking container status...${NC}"
-    docker-compose ps 2>/dev/null || true
-    echo -e "${YELLOW}Checking GitLab logs (last 150 lines)...${NC}"
-    docker-compose logs --tail=150 gitlab 2>/dev/null | tail -150 || true
-    exit 1
 fi
 echo ""
 
