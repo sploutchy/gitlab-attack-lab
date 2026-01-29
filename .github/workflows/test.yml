@@ -34,7 +34,7 @@ jobs:
         run: |
           echo "Starting lab environment..."
           make setup
-        timeout-minutes: 15
+        timeout-minutes: 20
       
       - name: Wait for services to stabilize
         run: sleep 30

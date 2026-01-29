@@ -37,18 +37,21 @@ echo ""
 
 # Step 2: Wait for GitLab to be healthy
 echo -e "${YELLOW}[STEP 2]${NC} Waiting for GitLab to initialize (this may take 3-5 minutes)..."
-MAX_ATTEMPTS=60
+MAX_ATTEMPTS=300  # 5 minutes
 ATTEMPT=0
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
     ATTEMPT=$((ATTEMPT + 1))
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/v4/version" 2>/dev/null || echo "000")
     
-    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
-        echo -e "${GREEN}✓${NC} GitLab is ready"
-        break
+    # Check if GitLab container is healthy
+    if docker-compose ps gitlab 2>/dev/null | grep -q "healthy"; then
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/v4/version" 2>/dev/null || echo "000")
+        if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
+            echo -e "${GREEN}✓${NC} GitLab is ready"
+            break
+        fi
     fi
     
-    # Show progress
+    # Show progress every 10 seconds
     if [ $((ATTEMPT % 10)) -eq 0 ]; then
         echo -e "  Waiting... (${ATTEMPT}s)"
     fi
@@ -56,7 +59,9 @@ while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
 done
 
 if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-    echo -e "${RED}✗${NC} GitLab failed to initialize"
+    echo -e "${RED}✗${NC} GitLab failed to initialize after $MAX_ATTEMPTS seconds"
+    echo -e "${YELLOW}Checking logs...${NC}"
+    docker-compose logs --tail=50 gitlab 2>/dev/null || true
     exit 1
 fi
 echo ""

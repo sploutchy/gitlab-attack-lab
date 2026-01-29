@@ -37,6 +37,7 @@ services:
       - gitlab_config:/etc/gitlab
       - gitlab_logs:/var/log/gitlab
       - gitlab_data:/var/opt/gitlab
+    shm_size: '256m'
     networks:
       - lab-network
     healthcheck:
@@ -44,7 +45,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     depends_on:
       - mailhog
 
