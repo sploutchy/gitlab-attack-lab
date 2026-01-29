@@ -1,0 +1,174 @@
+# GitLab Attack Lab - Declarative Structure
+# This file defines all users, groups, projects, variables, and permissions
+
+lab:
+  name: "GitLab Attack Lab"
+  description: "Security research and pentesting lab for GitLab CI/CD"
+
+users:
+  - username: root
+    email: root@localhost
+    password: Lab@Admin2024
+    is_admin: true
+    state: active
+    
+  - username: alice
+    email: alice@lab.local
+    password: SecurePass2024!
+    is_admin: false
+    state: active
+    
+  - username: bob
+    email: bob@lab.local
+    password: SecurePass2024!
+    is_admin: false
+    state: active
+    
+  - username: charlie
+    email: charlie@lab.local
+    password: SecurePass2024!
+    is_admin: false
+    state: active
+    
+  - username: pentester
+    email: pentester@lab.local
+    password: SecureP3nt3st3r@2024!
+    is_admin: false
+    state: active
+
+groups:
+  - name: security-team
+    path: security-team
+    description: "Security research and testing team"
+    visibility: private
+    members:
+      - username: pentester
+        access_level: 50  # Owner
+      - username: alice
+        access_level: 40  # Maintainer
+        
+  - name: devops-team
+    path: devops-team
+    description: "DevOps and infrastructure team"
+    visibility: private
+    members:
+      - username: bob
+        access_level: 50  # Owner
+      - username: charlie
+        access_level: 30  # Developer
+        
+  - name: development-team
+    path: development-team
+    description: "Development team"
+    visibility: private
+    members:
+      - username: alice
+        access_level: 40  # Maintainer
+      - username: bob
+        access_level: 30  # Developer
+
+projects:
+  - name: web-app
+    path: web-app
+    group: development-team
+    description: "Main web application with CI/CD pipeline"
+    visibility: private
+    default_branch: main
+    issues_enabled: true
+    wiki_enabled: true
+    snippets_enabled: true
+    ci_cd_enabled: true
+    variables:
+      - key: DEPLOY_ENV
+        value: production
+        protected: false
+        masked: false
+      - key: DEPLOY_TOKEN
+        value: "deploy-token-abc123xyz789"
+        protected: true
+        masked: true
+      - key: TEST_DB_HOST
+        value: "db.lab.local"
+        protected: false
+        masked: false
+      - key: REGISTRY_URL
+        value: "registry.lab.local:5000"
+        protected: false
+        masked: false
+        
+  - name: api-service
+    path: api-service
+    group: development-team
+    description: "REST API service"
+    visibility: private
+    default_branch: main
+    issues_enabled: true
+    ci_cd_enabled: true
+    variables:
+      - key: DEPLOY_ENV
+        value: staging
+        protected: false
+        masked: false
+      - key: API_KEY
+        value: "sk-test-abc123xyz"
+        protected: true
+        masked: true
+      - key: DATABASE_URL
+        value: "postgres://user:pass@db.local/api"
+        protected: true
+        masked: true
+        
+  - name: mobile-app
+    path: mobile-app
+    group: devops-team
+    description: "Mobile application"
+    visibility: private
+    default_branch: main
+    ci_cd_enabled: true
+    variables:
+      - key: BUILD_ENV
+        value: "release"
+        protected: false
+        masked: false
+      - key: SIGNING_KEY
+        value: "-----BEGIN PRIVATE KEY-----"
+        protected: true
+        masked: true
+        
+  - name: infrastructure
+    path: infrastructure
+    group: devops-team
+    description: "Infrastructure as Code"
+    visibility: private
+    default_branch: main
+    ci_cd_enabled: true
+    variables:
+      - key: TF_VAR_environment
+        value: "lab"
+        protected: false
+        masked: false
+      - key: AWS_ACCESS_KEY
+        value: "AKIAIOSFODNN7EXAMPLE"
+        protected: true
+        masked: true
+      - key: AWS_SECRET_KEY
+        value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        protected: true
+        masked: true
+        
+  - name: security-tools
+    path: security-tools
+    group: security-team
+    description: "Security scanning and testing tools"
+    visibility: private
+    default_branch: main
+    ci_cd_enabled: true
+    variables:
+      - key: SCANNER_TOKEN
+        value: "scanner-token-secret"
+        protected: true
+        masked: true
+      - key: REPORT_WEBHOOK
+        value: "https://security.lab.local/webhook"
+        protected: false
+        masked: false

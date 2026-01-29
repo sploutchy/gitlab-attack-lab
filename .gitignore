@@ -1,0 +1,66 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache files
+scripts/.cache
+scripts/.projects
+scripts/.token
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+volumes/
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+*.artifact
+*.zip
+test-output/
+
+# Credentials (if accidentally created)
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*credentials*
+*secret*
+!docs/examples/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build artifacts
+dist/
+build/
+out/

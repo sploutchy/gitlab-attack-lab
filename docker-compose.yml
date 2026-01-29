@@ -1,0 +1,170 @@
+services:
+  # GitLab CE Instance
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab-attack-lab
+    hostname: gitlab
+    restart: unless-stopped
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab'
+        gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD']
+        gitlab_rails['initial_shared_runners_registration_token'] = ENV['GITLAB_RUNNER_TOKEN']
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "mailhog"
+        gitlab_rails['smtp_port'] = 1025
+        gitlab_rails['smtp_domain'] = "gitlab.local"
+        gitlab_rails['smtp_authentication'] = "none"
+        gitlab_rails['time_zone'] = 'UTC'
+        gitlab_rails['allow_local_requests_from_web_hooks_and_services'] = true
+        gitlab_rails['enable_user_signup'] = true
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        puma['worker_processes'] = 2
+        puma['worker_memory'] = 256
+        postgresql['max_connections'] = 200
+        postgresql['shared_buffers'] = '256MB'
+        redis['maxmemory'] = '256mb'
+        gitaly['ruby_num_workers'] = 2
+        prometheus_monitoring['enable'] = false
+        sidekiq['max_concurrency'] = 10
+        gitlab_ci['gitlab_ci_all_broken_builds'] = true
+        gitlab_ci['gitlab_ci_add_pusher'] = true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "22:22"
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    networks:
+      - lab-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    depends_on:
+      - mailhog
+
+  # GitLab Runner - Shared (Docker executor)
+  gitlab-runner-docker:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-docker
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab_runner_docker_config:/etc/gitlab-runner
+      - gitlab_runner_docker_builds:/builds
+      - gitlab_runner_docker_cache:/cache
+    networks:
+      - lab-network
+    environment:
+      CI_SERVER_URL: "http://gitlab:80/"
+      RUNNER_REGISTRATION_TOKEN: "${GITLAB_RUNNER_TOKEN}"
+      RUNNER_NAME: "shared-docker-runner"
+      RUNNER_TAG_LIST: "docker,linux,shared"
+      RUNNER_EXECUTOR: "docker"
+      DOCKER_IMAGE: "ubuntu:latest"
+      RUNNER_REQUEST_CONCURRENCY: "4"
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    command:
+      - "gitlab-runner"
+      - "register"
+      - "--non-interactive"
+      - "--url=http://gitlab/"
+      - "--registration-token=${GITLAB_RUNNER_TOKEN}"
+      - "--executor=docker"
+      - "--description=shared-docker-runner"
+      - "--tag-list=docker,linux,shared"
+      - "--docker-image=ubuntu:latest"
+      - "--docker-volumes=/var/run/docker.sock:/var/run/docker.sock"
+      - "--docker-privileged=false"
+      - "--builds-dir=/builds"
+      - "--cache-dir=/cache"
+
+  # GitLab Runner - Shell executor (Privileged)
+  gitlab-runner-shell:
+    image: gitlab/gitlab-runner:latest
+    container_name: gitlab-runner-shell
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab_runner_shell_config:/etc/gitlab-runner
+      - gitlab_runner_shell_builds:/builds
+      - gitlab_runner_shell_cache:/cache
+    networks:
+      - lab-network
+    environment:
+      CI_SERVER_URL: "http://gitlab:80/"
+      RUNNER_REGISTRATION_TOKEN: "${GITLAB_RUNNER_TOKEN}"
+      RUNNER_NAME: "shell-runner"
+      RUNNER_TAG_LIST: "shell,privileged"
+      RUNNER_EXECUTOR: "shell"
+      RUNNER_REQUEST_CONCURRENCY: "2"
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    command:
+      - "gitlab-runner"
+      - "register"
+      - "--non-interactive"
+      - "--url=http://gitlab/"
+      - "--registration-token=${GITLAB_RUNNER_TOKEN}"
+      - "--executor=shell"
+      - "--description=shell-runner"
+      - "--tag-list=shell,privileged"
+      - "--builds-dir=/builds"
+      - "--cache-dir=/cache"
+
+  # MailHog for email testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - lab-network
+
+  # Pentester container with pipeleek pre-installed
+  pentester:
+    build:
+      context: ./pentester
+      dockerfile: Dockerfile
+    container_name: pentester
+    hostname: pentester
+    restart: unless-stopped
+    networks:
+      - lab-network
+    volumes:
+      - ./pentester/workspace:/workspace
+      - ./pentester/config:/root/.config
+    environment:
+      GITLAB_URL: "http://gitlab"
+      GITLAB_TOKEN: "${PENTESTER_TOKEN}"
+      PS1: "[pentester@lab] \\w $ "
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    command: /bin/bash -c "while true; do sleep 3600; done"
+
+networks:
+  lab-network:
+    driver: bridge
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  gitlab_runner_docker_config:
+  gitlab_runner_docker_builds:
+  gitlab_runner_docker_cache:
+  gitlab_runner_shell_config:
+  gitlab_runner_shell_builds:
+  gitlab_runner_shell_cache:
