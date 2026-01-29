@@ -10,7 +10,7 @@ on:
 jobs:
   test-setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     
     steps:
       - name: Checkout repository
@@ -34,7 +34,7 @@ jobs:
         run: |
           echo "Starting lab environment..."
           make setup
-        timeout-minutes: 20
+        timeout-minutes: 30
       
       - name: Wait for services to stabilize
         run: sleep 30
