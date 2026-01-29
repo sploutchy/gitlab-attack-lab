@@ -237,6 +237,11 @@ The lab uses a declarative YAML-based approach to define all GitLab data. The co
 - Groups (with visibility settings)
 - Projects (with descriptions)
 - CI/CD Variables (with protection and masking settings)
+- Runners (tag configuration and access settings for runners registered by Docker Compose)
+
+Projects can optionally import an existing public repository by specifying `repo_url` in the project definition. When set, the lab imports the repository and ensures a default `.gitlab-ci.yml` exists (unless the repo already provides one).
+
+Runners are registered by the containers defined in docker-compose.yml. The YAML `runners` section lets you manage their tags and access settings once they appear in GitLab.
 
 #### Customizing the Lab
 

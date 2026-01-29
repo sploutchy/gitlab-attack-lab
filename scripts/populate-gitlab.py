@@ -19,17 +19,132 @@ class GitLabPopulator:
         self.users_map = {}  # Map username to user ID
         self.groups_map = {}  # Map group path to group ID
         self.projects_map = {}  # Map project path to project ID
+                self.ci_templates = self._build_ci_templates()
+
+        def _build_ci_templates(self) -> Dict[str, str]:
+                """Build default CI templates for lab projects"""
+                return {
+                        'web-app': """image: node:18
+
+stages:
+    - test
+    - build
+    - deploy
+
+cache:
+    paths:
+        - node_modules/
+
+test:
+    stage: test
+    script:
+        - npm ci
+        - npm test
+
+build:
+    stage: build
+    script:
+        - npm run build
+    artifacts:
+        paths:
+            - dist/
+
+deploy:
+    stage: deploy
+    script:
+        - echo "Deploying to $DEPLOY_ENV"
+    only:
+        - main
+""",
+                        'api-service': """image: python:3.11
+
+stages:
+    - test
+    - build
+
+before_script:
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+
+tests:
+    stage: test
+    script:
+        - pytest -q
+
+package:
+    stage: build
+    script:
+        - python -m pip install build
+        - python -m build
+    artifacts:
+        paths:
+            - dist/
+""",
+                        'mobile-app': """image: alpine:3.19
+
+stages:
+    - build
+    - release
+
+build:
+    stage: build
+    script:
+        - echo "Building mobile app for $BUILD_ENV"
+        - mkdir -p build && echo "artifact" > build/app.apk
+    artifacts:
+        paths:
+            - build/
+
+release:
+    stage: release
+    script:
+        - echo "Signing with key: $SIGNING_KEY"
+        - echo "Release complete"
+    only:
+        - main
+""",
+                        'infrastructure': """image: hashicorp/terraform:1.6
+
+stages:
+    - validate
+    - plan
+
+validate:
+    stage: validate
+    script:
+        - terraform init -backend=false
+        - terraform validate
+
+plan:
+    stage: plan
+    script:
+        - terraform init -backend=false
+        - terraform plan -var "environment=$TF_VAR_environment"
+""",
+                        'security-tools': """image: alpine:3.19
+
+stages:
+    - scan
+
+scan:
+    stage: scan
+    script:
+        - echo "Running security scan"
+        - echo "Using token: ${SCANNER_TOKEN:0:6}****"
+        - echo "Webhook: $REPORT_WEBHOOK"
+""",
+                }
         
     def log(self, level: str, message: str):
         """Log message with level prefix"""
         print(f"[{level:>8}] {message}")
         
-    def api_call(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Optional[Dict]:
+    def api_call(self, method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Optional[Dict]:
         """Make API call to GitLab"""
         url = f"{self.gitlab_url}/api/v4/{endpoint}"
         try:
             if method == 'GET':
-                resp = self.session.get(url)
+                resp = self.session.get(url, params=params)
             elif method == 'POST':
                 resp = self.session.post(url, json=data)
             elif method == 'PUT':
@@ -42,6 +157,122 @@ class GitLabPopulator:
         except requests.exceptions.RequestException as e:
             self.log("ERROR", f"API call failed: {e}")
             return None
+
+    def _wait_for_import(self, project_id: int, max_attempts: int = 60) -> bool:
+        """Wait for repository import to finish"""
+        for attempt in range(max_attempts):
+            result = self.api_call('GET', f'projects/{project_id}')
+            if not result:
+                time.sleep(2)
+                continue
+
+            status = result.get('import_status')
+            if status in (None, 'finished'):
+                return True
+            if status == 'failed':
+                self.log("ERROR", f"Import failed for project {project_id}")
+                return False
+
+            if attempt % 5 == 0:
+                self.log("INFO", f"Waiting for import of project {project_id} (status: {status})")
+            time.sleep(2)
+
+        self.log("ERROR", f"Import did not finish for project {project_id}")
+        return False
+
+    def _get_all_runners(self) -> List[Dict[str, Any]]:
+        """Fetch all runners (admin token required)"""
+        runners: List[Dict[str, Any]] = []
+        page = 1
+        while True:
+            page_data = self.api_call('GET', 'runners/all', params={'per_page': 100, 'page': page})
+            if not page_data:
+                break
+            runners.extend(page_data)
+            if len(page_data) < 100:
+                break
+            page += 1
+        return runners
+
+    def _find_runner_by_description(self, runners: List[Dict[str, Any]], description: str) -> Optional[Dict[str, Any]]:
+        """Find runner by description"""
+        for runner in runners:
+            if runner.get('description') == description:
+                return runner
+        return None
+
+    def create_runner(self, runner_cfg: Dict[str, Any]) -> Optional[str]:
+        """Create a runner and return its authentication token"""
+        data = {
+            'runner_type': 'instance_type',
+            'description': runner_cfg.get('description', 'runner'),
+            'tag_list': runner_cfg.get('tags', []),
+            'run_untagged': runner_cfg.get('run_untagged', True),
+            'locked': runner_cfg.get('locked', False),
+            'access_level': runner_cfg.get('access_level', 'not_protected'),
+        }
+        
+        result = self.api_call('POST', 'user/runners', data)
+        if result:
+            token = result.get('token')
+            self.log("OK", f"Created runner: {runner_cfg.get('description')} (token: {token[:12]}...)")
+            return token
+        else:
+            self.log("ERROR", f"Failed to create runner: {runner_cfg.get('description')}")
+            return None
+
+    def create_runners(self, runners_config: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Create all runners and return mapping of description to token"""
+        if not runners_config:
+            return {}
+
+        self.log("INFO", "Creating runners...")
+        tokens = {}
+        for runner_cfg in runners_config:
+            description = runner_cfg.get('description')
+            if not description:
+                continue
+            
+            token = self.create_runner(runner_cfg)
+            if token:
+                tokens[description] = token
+        
+        return tokens
+
+    def _create_file(self, project_id: int, file_path: str, content: str, branch: str, commit_message: str) -> bool:
+        """Create a file in the repository"""
+        data = {
+            'branch': branch,
+            'content': content,
+            'commit_message': commit_message
+        }
+
+        result = self.api_call('POST', f'projects/{project_id}/repository/files/{file_path}', data)
+        if result:
+            self.log("OK", f"Created {file_path} in project {project_id}")
+            return True
+
+        self.log("WARN", f"Failed to create {file_path} in project {project_id}")
+        return False
+
+    def _ensure_ci_config(self, project_id: int, project_path: str, default_branch: Optional[str]):
+        """Ensure a .gitlab-ci.yml exists in the project"""
+        template = self.ci_templates.get(project_path)
+        if not template:
+            self.log("INFO", f"No CI template for project {project_path}, skipping")
+            return
+
+        if not default_branch:
+            project_info = self.api_call('GET', f'projects/{project_id}')
+            default_branch = project_info.get('default_branch', 'main') if project_info else 'main'
+
+        self._create_file(
+            project_id=project_id,
+            file_path='.gitlab-ci.yml',
+            content=template,
+            branch=default_branch,
+            commit_message='Add default GitLab CI pipeline'
+        )
     
     def wait_for_gitlab(self, max_attempts: int = 30) -> bool:
         """Wait for GitLab to be ready"""
@@ -130,6 +361,7 @@ class GitLabPopulator:
     
     def create_project(self, project: Dict, parent_group: Optional[str] = None) -> Optional[int]:
         """Create a project in GitLab"""
+        repo_url = project.get('repo_url')
         data = {
             'name': project['name'],
             'path': project['path'],
@@ -139,7 +371,12 @@ class GitLabPopulator:
             'wiki_enabled': project.get('wiki_enabled', False),
             'snippets_enabled': project.get('snippets_enabled', False),
             'builds_enabled': project.get('ci_cd_enabled', False),
+            'initialize_with_readme': False if repo_url else True,
+            'default_branch': project.get('default_branch', 'main')
         }
+
+        if repo_url:
+            data['import_url'] = repo_url
         
         # Add to group if specified
         if parent_group and parent_group in self.groups_map:
@@ -151,9 +388,16 @@ class GitLabPopulator:
             self.projects_map[project['path']] = project_id
             self.log("OK", f"Created project: {project['name']} (ID: {project_id})")
             
+            # If importing, wait for repo to be ready
+            if repo_url:
+                self._wait_for_import(project_id)
+
             # Add variables
             for var in project.get('variables', []):
                 self._add_project_variable(project_id, var)
+
+            # Add default CI config
+            self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
             
             return project_id
         else:
@@ -214,9 +458,12 @@ class GitLabPopulator:
         for project in config.get('projects', []):
             group = project.get('group')
             self.create_project(project, group)
+
+        # Create runners and return tokens
+        runner_tokens = self.create_runners(config.get('runners', []))
         
         self.log("OK", "Population complete!")
-        return True
+        return runner_tokens
 
 
 def main():
@@ -235,8 +482,15 @@ def main():
         sys.exit(1)
     
     # Populate from YAML
-    if not populator.populate_from_yaml(config_file):
+    runner_tokens = populator.populate_from_yaml(config_file)
+    if not runner_tokens:
         sys.exit(1)
+    
+    # Output runner tokens for setup script to capture
+    print("\n=== RUNNER_TOKENS ===")
+    for description, token in runner_tokens.items():
+        print(f"{description}={token}")
+    print("=== END_RUNNER_TOKENS ===")
     
     print("\n✅ GitLab lab structure successfully populated!")
     sys.exit(0)

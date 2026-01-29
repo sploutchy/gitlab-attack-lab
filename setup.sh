@@ -111,9 +111,33 @@ fi
 # Install required Python packages
 pip3 install -q pyyaml requests 2>/dev/null || true
 
-# Run the populator
-if python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$PROJECT_ROOT/lab-config/structure.yml" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN"; then
+# Run the populator and capture runner tokens
+POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$PROJECT_ROOT/lab-config/structure.yml" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN" 2>&1)
+POPULATE_EXIT=$?
+
+echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "="
+
+if [ $POPULATE_EXIT -eq 0 ]; then
     echo -e "${GREEN}✓${NC} GitLab structure populated"
+    
+    # Extract and save runner tokens to .env
+    if echo "$POPULATE_OUTPUT" | grep -q "=== RUNNER_TOKENS ==="; then
+        echo "$POPULATE_OUTPUT" | sed -n '/=== RUNNER_TOKENS ===/,/=== END_RUNNER_TOKENS ===/p' | grep '=' | grep -v "===" | while IFS='=' read -r runner_name token; do
+            # Convert description to env var format (e.g., shared-docker-runner -> RUNNER_TOKEN_DOCKER)
+            if [[ "$runner_name" == *"docker"* ]]; then
+                sed -i "s/^RUNNER_TOKEN_DOCKER=.*/RUNNER_TOKEN_DOCKER=$token/" "$PROJECT_ROOT/.env"
+                echo -e "${GREEN}  ✓${NC} Saved docker runner token"
+            elif [[ "$runner_name" == *"shell"* ]]; then
+                sed -i "s/^RUNNER_TOKEN_SHELL=.*/RUNNER_TOKEN_SHELL=$token/" "$PROJECT_ROOT/.env"
+                echo -e "${GREEN}  ✓${NC} Saved shell runner token"
+            fi
+        done
+        
+        # Restart runner containers to pick up new tokens
+        echo -e "  Restarting runner containers..."
+        docker-compose restart gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
+        echo -e "${GREEN}  ✓${NC} Runner containers restarted"
+    fi
 else
     echo -e "${RED}✗${NC} Failed to populate GitLab structure"
     exit 1

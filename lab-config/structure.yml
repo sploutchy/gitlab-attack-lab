@@ -67,6 +67,26 @@ groups:
       - username: bob
         access_level: 30  # Developer
 
+runners:
+  - description: shared-docker-runner
+    executor: docker
+    tags:
+      - docker
+      - linux
+      - shared
+    run_untagged: true
+    locked: false
+    access_level: not_protected
+
+  - description: shell-runner
+    executor: shell
+    tags:
+      - shell
+      - privileged
+    run_untagged: true
+    locked: false
+    access_level: not_protected
+
 projects:
   - name: web-app
     path: web-app
@@ -74,6 +94,7 @@ projects:
     description: "Main web application with CI/CD pipeline"
     visibility: private
     default_branch: main
+    repo_url: "https://github.com/octocat/Hello-World.git"
     issues_enabled: true
     wiki_enabled: true
     snippets_enabled: true
@@ -102,6 +123,7 @@ projects:
     description: "REST API service"
     visibility: private
     default_branch: main
+    repo_url: "https://github.com/octocat/Spoon-Knife.git"
     issues_enabled: true
     ci_cd_enabled: true
     variables:
@@ -124,6 +146,7 @@ projects:
     description: "Mobile application"
     visibility: private
     default_branch: main
+    repo_url: "https://github.com/octocat/Hello-World.git"
     ci_cd_enabled: true
     variables:
       - key: BUILD_ENV
@@ -141,6 +164,7 @@ projects:
     description: "Infrastructure as Code"
     visibility: private
     default_branch: main
+    repo_url: "https://github.com/octocat/Spoon-Knife.git"
     ci_cd_enabled: true
     variables:
       - key: TF_VAR_environment
@@ -162,6 +186,7 @@ projects:
     description: "Security scanning and testing tools"
     visibility: private
     default_branch: main
+    repo_url: "https://github.com/octocat/Hello-World.git"
     ci_cd_enabled: true
     variables:
       - key: SCANNER_TOKEN

@@ -9,7 +9,6 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://gitlab'
         gitlab_rails['initial_root_password'] = ENV['GITLAB_ROOT_PASSWORD']
-        gitlab_rails['initial_shared_runners_registration_token'] = ENV['GITLAB_RUNNER_TOKEN']
         gitlab_rails['smtp_enable'] = true
         gitlab_rails['smtp_address'] = "mailhog"
         gitlab_rails['smtp_port'] = 1025
@@ -62,30 +61,37 @@ services:
     networks:
       - lab-network
     environment:
-      CI_SERVER_URL: "http://gitlab:80/"
-      RUNNER_REGISTRATION_TOKEN: "${GITLAB_RUNNER_TOKEN}"
-      RUNNER_NAME: "shared-docker-runner"
-      RUNNER_TAG_LIST: "docker,linux,shared"
-      RUNNER_EXECUTOR: "docker"
-      DOCKER_IMAGE: "ubuntu:latest"
-      RUNNER_REQUEST_CONCURRENCY: "4"
+      RUNNER_TOKEN: "${RUNNER_TOKEN_DOCKER}"
+      GITLAB_URL: "http://gitlab/"
     depends_on:
       gitlab:
         condition: service_healthy
+    entrypoint: /bin/bash
     command:
-      - "gitlab-runner"
-      - "register"
-      - "--non-interactive"
-      - "--url=http://gitlab/"
-      - "--registration-token=${GITLAB_RUNNER_TOKEN}"
-      - "--executor=docker"
-      - "--description=shared-docker-runner"
-      - "--tag-list=docker,linux,shared"
-      - "--docker-image=ubuntu:latest"
-      - "--docker-volumes=/var/run/docker.sock:/var/run/docker.sock"
-      - "--docker-privileged=false"
-      - "--builds-dir=/builds"
-      - "--cache-dir=/cache"
+      - -c
+      - |
+        # Wait for runner token to be available
+        while [ -z "$RUNNER_TOKEN" ]; do
+          echo "Waiting for runner token to be set..."
+          sleep 5
+          # Re-source environment in case it was updated
+          export RUNNER_TOKEN="${RUNNER_TOKEN_DOCKER}"
+        done
+        
+        # Register runner with authentication token
+        gitlab-runner register \
+          --non-interactive \
+          --url "$GITLAB_URL" \
+          --token "$RUNNER_TOKEN" \
+          --executor docker \
+          --docker-image ubuntu:latest \
+          --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
+          --docker-privileged=false \
+          --builds-dir /builds \
+          --cache-dir /cache
+        
+        # Start runner
+        gitlab-runner run
 
   # GitLab Runner - Shell executor (Privileged)
   gitlab-runner-shell:
@@ -100,26 +106,33 @@ services:
     networks:
       - lab-network
     environment:
-      CI_SERVER_URL: "http://gitlab:80/"
-      RUNNER_REGISTRATION_TOKEN: "${GITLAB_RUNNER_TOKEN}"
-      RUNNER_NAME: "shell-runner"
-      RUNNER_TAG_LIST: "shell,privileged"
-      RUNNER_EXECUTOR: "shell"
-      RUNNER_REQUEST_CONCURRENCY: "2"
+      RUNNER_TOKEN: "${RUNNER_TOKEN_SHELL}"
+      GITLAB_URL: "http://gitlab/"
     depends_on:
       gitlab:
         condition: service_healthy
+    entrypoint: /bin/bash
     command:
-      - "gitlab-runner"
-      - "register"
-      - "--non-interactive"
-      - "--url=http://gitlab/"
-      - "--registration-token=${GITLAB_RUNNER_TOKEN}"
-      - "--executor=shell"
-      - "--description=shell-runner"
-      - "--tag-list=shell,privileged"
-      - "--builds-dir=/builds"
-      - "--cache-dir=/cache"
+      - -c
+      - |
+        # Wait for runner token to be available
+        while [ -z "$RUNNER_TOKEN" ]; do
+          echo "Waiting for runner token to be set..."
+          sleep 5
+          export RUNNER_TOKEN="${RUNNER_TOKEN_SHELL}"
+        done
+        
+        # Register runner with authentication token
+        gitlab-runner register \
+          --non-interactive \
+          --url "$GITLAB_URL" \
+          --token "$RUNNER_TOKEN" \
+          --executor shell \
+          --builds-dir /builds \
+          --cache-dir /cache
+        
+        # Start runner
+        gitlab-runner run
 
   # MailHog for email testing
   mailhog:
