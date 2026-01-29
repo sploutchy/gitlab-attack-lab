@@ -481,8 +481,10 @@ scan:
                 timeout=120
             )
             
-            # Get project URL with token
-            gitlab_repo_url = f"http://oauth2:{self.admin_token}@gitlab/{project_path}.git"
+            # Get project URL with token - use gitlab_url (http://127.0.0.1) not hostname
+            # Remove trailing slash if present
+            base_url = self.gitlab_url.rstrip('/')
+            gitlab_repo_url = f"http://oauth2:{self.admin_token}@{base_url.replace('http://', '')}/{project_path}.git"
             
             # Push to GitLab
             self.log("INFO", f"Pushing to GitLab project {project_path}...")
