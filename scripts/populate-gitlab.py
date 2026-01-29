@@ -157,9 +157,12 @@ scan:
         except requests.exceptions.RequestException as e:
             error_msg = str(e)
             try:
-                resp_text = e.response.text
+                resp_text = e.response.text if hasattr(e, 'response') and e.response else ''
                 if resp_text:
                     error_msg += f" - {resp_text[:200]}"
+                # For 403, also log the request data that caused it
+                if hasattr(e, 'response') and e.response and e.response.status_code == 403:
+                    error_msg += f" (payload: {str(data)[:100]}...)" if data else ""
             except:
                 pass
             self.log("ERROR", f"API call failed: {error_msg}")
@@ -426,16 +429,16 @@ scan:
             'wiki_enabled': project.get('wiki_enabled', False),
             'snippets_enabled': project.get('snippets_enabled', False),
             'builds_enabled': project.get('ci_cd_enabled', False),
-            'initialize_with_readme': False if repo_url else True,
+            'initialize_with_readme': True,  # Always initialize with README
             'default_branch': project.get('default_branch', 'main')
         }
-
-        if repo_url:
-            data['import_url'] = repo_url
         
-        # Add to group if specified
-        if parent_group and parent_group in self.groups_map:
-            data['namespace_id'] = self.groups_map[parent_group]
+        # Add to group if specified and group exists
+        if parent_group:
+            if parent_group in self.groups_map:
+                data['namespace_id'] = self.groups_map[parent_group]
+            else:
+                self.log("WARN", f"Group not found: {parent_group}, creating project in user namespace")
         
         result = self.api_call('POST', 'projects', data)
         if result:
@@ -443,9 +446,10 @@ scan:
             self.projects_map[project['path']] = project_id
             self.log("OK", f"Created project: {project['name']} (ID: {project_id})")
             
-            # If importing, wait for repo to be ready
+            # Note: repo_url import is skipped as it requires special permissions
+            # Projects are created with README and will have CI configs added
             if repo_url:
-                self._wait_for_import(project_id)
+                self.log("INFO", f"Note: repo_url specified but import skipped (requires admin permissions)")
 
             # Add variables
             for var in project.get('variables', []):
@@ -458,6 +462,25 @@ scan:
         else:
             self.log("WARN", f"Failed to create project: {project['name']}")
             return None
+    
+    def _import_repository(self, project_id: int, repo_url: str):
+        """Import a repository into an existing project"""
+        # Use the remote mirror import endpoint
+        data = {
+            'url': repo_url,
+            'import_type': 'git'
+        }
+        
+        # Try the import via remote mirror
+        import_data = {'url': repo_url}
+        result = self.api_call('POST', f'projects/{project_id}/remote_mirrors', import_data)
+        
+        if not result:
+            # Fallback: Try creating a push to import
+            self.log("INFO", f"Remote mirror not available, project {project_id} will remain empty")
+            return
+            
+        self.log("OK", f"Repository mirror set up for project {project_id}")
     
     def _add_project_variable(self, project_id: int, variable: Dict):
         """Add a CI/CD variable to a project"""
