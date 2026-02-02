@@ -68,18 +68,7 @@ curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects | jq
 curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects/1/variables | jq
 ```
 
-## 📚 Scenarios
-
-Available scenarios:
-- **default.yml** - Multiple projects with exposed variables
-- **scenario-1.yml** - Public CI/CD with exposed AWS credentials
-
-Run a specific scenario:
-```bash
-SCENARIOS="lab-config/scenarios/scenario-1.yml" make setup
-```
-
-## 🛑 Stop the Lab
+##  Stop the Lab
 
 ```bash
 make stop               # Stop containers
