@@ -251,6 +251,26 @@ class TestDataFiles:
             assert 'name' in project, f"Project missing name: {project}"
             assert 'path' in project, f"Project {project.get('name')} missing path"
             assert 'group' in project, f"Project {project.get('name')} missing group"
+    
+    def test_merged_has_valid_schedules(self):
+        """Verify projects with schedules have valid schedule configuration"""
+        data = self._load_merged_config()
+        projects = data.get('projects', [])
+
+        schedule_count = 0
+        for project in projects:
+            schedules = project.get('schedules', [])
+            
+            for schedule in schedules:
+                schedule_count += 1
+                assert 'description' in schedule, f"Schedule missing description in {project.get('name')}"
+                assert 'cron' in schedule, f"Schedule missing cron in {project.get('name')}"
+                assert 'cron_timezone' in schedule, f"Schedule missing cron_timezone in {project.get('name')}"
+                assert 'ref' in schedule, f"Schedule missing ref in {project.get('name')}"
+                assert 'active' in schedule, f"Schedule missing active flag in {project.get('name')}"
+        
+        assert schedule_count > 0, "No schedules found in merged config"
+
 
 
 if __name__ == '__main__':

@@ -22,12 +22,6 @@ users:
     password: SecurePass2024!
     is_admin: false
     state: active
-  
-  - username: pentester
-    email: pentester@lab.local
-    password: SecureP3nt3st3r@2024!
-    is_admin: false
-    state: active
 
 groups:
   - name: security-team

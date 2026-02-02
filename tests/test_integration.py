@@ -275,6 +275,46 @@ def test_ci_configs():
     
     print(f"  ✓ Found CI configs in {ci_project_count} projects")
 
+def test_pipeline_schedules():
+    """Test that pipeline schedules are created"""
+    print("Testing pipeline schedules...")
+    client = GitLabTestClient()
+    config = load_merged_config()
+    
+    schedule_count = 0
+    for project_cfg in config['projects']:
+        if not project_cfg.get('schedules'):
+            continue
+        
+        project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+        
+        # Get project
+        projects = client.get_json('projects', params={'search': project_cfg['path']})
+        project = next((p for p in projects if p['path_with_namespace'] == project_path), None)
+        assert project is not None, f"Project '{project_path}' not found"
+        
+        # Get schedules
+        schedules = client.get_json(f"projects/{project['id']}/pipeline_schedules")
+        schedule_descriptions = [s['description'] for s in schedules]
+        
+        # Check expected schedules
+        for schedule_cfg in project_cfg['schedules']:
+            expected_desc = schedule_cfg.get('description')
+            assert expected_desc in schedule_descriptions, \
+                f"Schedule '{expected_desc}' not found in project '{project_path}'"
+            
+            # Verify schedule details
+            schedule = next((s for s in schedules if s['description'] == expected_desc), None)
+            assert schedule['cron'] == schedule_cfg.get('cron'), \
+                f"Schedule cron mismatch in '{project_path}'"
+            assert schedule['cron_timezone'] == schedule_cfg.get('cron_timezone', 'UTC'), \
+                f"Schedule timezone mismatch in '{project_path}'"
+            
+            print(f"  ✓ Schedule '{expected_desc}' exists in '{project_path}' (cron: {schedule['cron']})")
+            schedule_count += 1
+    
+    print(f"  ✓ Found {schedule_count} pipeline schedules")
+
 def test_runners_registered():
     """Test that runners are registered"""
     print("Testing runner registration...")

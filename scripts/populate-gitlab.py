@@ -472,6 +472,10 @@ scan:
             for var in project.get('variables', []):
                 self._add_project_variable(project_id, var)
 
+            # Add pipeline schedules
+            for schedule in project.get('schedules', []):
+                self._add_project_schedule(project_id, schedule)
+
             # Add default CI config (only if repo didn't have one)
             self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
             
@@ -569,6 +573,23 @@ scan:
             self.log("OK", f"Added variable {variable['key']} to project {project_id}")
         else:
             self.log("WARN", f"Failed to add variable {variable['key']}")
+    
+    def _add_project_schedule(self, project_id: int, schedule: Dict):
+        """Add a pipeline schedule to a project"""
+        data = {
+            'description': schedule.get('description', 'Pipeline schedule'),
+            'cron': schedule.get('cron', '0 0 * * *'),
+            'cron_timezone': schedule.get('cron_timezone', 'UTC'),
+            'ref': schedule.get('ref', 'main'),
+            'active': schedule.get('active', True)
+        }
+        
+        result = self.api_call('POST', f'projects/{project_id}/pipeline_schedules', data)
+        if result:
+            self.log("OK", f"Added schedule '{schedule.get('description')}' to project {project_id}")
+        else:
+            self.log("WARN", f"Failed to add schedule to project {project_id}")
+
     
     def populate_from_yaml(self, yaml_file: str) -> bool:
         """Load YAML file and populate GitLab"""

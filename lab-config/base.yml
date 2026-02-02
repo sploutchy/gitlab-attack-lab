@@ -8,3 +8,9 @@ users:
     password: R00t@L4b_Adm1n_2024
     is_admin: true
     state: active
+    
+  - username: pentester
+    email: pentester@lab.local
+    password: SecureP3nt3st3r@2024!
+    is_admin: false
+    state: active

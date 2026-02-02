@@ -1,0 +1,133 @@
+scenario:
+  name: "Scenario 1: Exposed AWS Credentials in CI"
+  description: "Three public projects demonstrating exposed AWS credentials in CI/CD pipeline"
+  difficulty: "beginner"
+  tags: ["secrets-exposure", "aws-credentials", "ci-cd", "public-projects"]
+
+projects:
+  - name: web-service
+    path: web-service
+    visibility: public
+    description: "Public project with standard CI/CD"
+    default_branch: main
+    issues_enabled: true
+    ci_cd_enabled: true
+    repo_url: "https://github.com/octocat/Hello-World.git"
+    schedules:
+      - description: "Build every 2 minutes"
+        cron: "*/2 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    ci_cd_file: |
+      stages:
+        - build
+      
+      build:
+        stage: build
+        script:
+          - echo "Starting build pipeline..."
+          - echo "Initializing build environment"
+          - for i in {1..50}; do echo "[BUILD] Processing dependency $i"; done
+          - echo "Compiling source code..."
+          - echo "[INFO] Found 1,234 files to process"
+          - echo "[INFO] Loaded 567 dependencies"
+          - echo "[WARN] Deprecated library detected: old-lib v1.0"
+          - echo "[DEBUG] Cache hit: 89%, miss: 11%"
+          - for i in {1..30}; do echo "[BUILD] Compiling module $i/30"; done
+          - echo "[INFO] Build complete: 2,341 objects compiled"
+          - echo "Running tests..."
+          - for i in {1..40}; do echo "[TEST] Running test suite $i"; done
+          - echo "All tests passed: 2,341 assertions, 0 failures"
+          - echo "Build process finished successfully"
+        tags:
+          - docker
+  
+  - name: infrastructure-provisioner
+    path: infrastructure-provisioner
+    visibility: public
+    description: "Public project with exposed AWS credentials"
+    default_branch: main
+    issues_enabled: true
+    ci_cd_enabled: true
+    repo_url: "https://github.com/octocat/Spoon-Knife.git"
+    schedules:
+      - description: "Deploy every 2 minutes"
+        cron: "*/2 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    variables:
+      - key: AWS_ACCESS_KEY_ID
+        value: AKIAZ6Z5IX4RC6WIHTPO
+        protected: false
+        masked: false
+      - key: AWS_SECRET_ACCESS_KEY
+        value: 0LxkbeGjEnxrE1zebldqw4i9uhWuZS9yATTItDN5
+        protected: false
+        masked: false
+      - key: AWS_OUTPUT
+        value: json
+        protected: false
+        masked: false
+      - key: AWS_REGION
+        value: us-east-2
+        protected: false
+        masked: false
+    ci_cd_file: |
+      stages:
+        - deploy
+      
+      deploy:
+        stage: deploy
+        script:
+          - set -ex
+          - echo "Deploying to AWS with credentials"
+          - cat > ~/.aws/credentials << 'EOF'
+          - [default]
+          - aws_access_key_id = $AWS_ACCESS_KEY_ID
+          - aws_secret_access_key = $AWS_SECRET_ACCESS_KEY
+          - output = $AWS_OUTPUT
+          - region = $AWS_REGION
+          - EOF
+          - for i in {1..100}; do echo "Deploying to prod [$i/100]"; done
+          - rm ~/.aws/credentials
+        tags:
+          - docker
+  
+  - name: qa-automation
+    path: qa-automation
+    visibility: public
+    issues_enabled: true
+    ci_cd_enabled: true
+    repo_url: "https://github.com/octocat/Hello-World.git"
+    schedules:
+      - description: "QA tests every 2 minutes"
+        cron: "*/2 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    ci_cd_file: |
+      stages:
+        - test
+      
+      test:
+        stage: test
+        script:
+          - echo "QA Automation Pipeline Started"
+          - echo "Initializing test environment..."
+          - echo "[SETUP] Starting 5 test workers"
+          - for i in {1..60}; do echo "[WORKER-$((i % 5 + 1))] Running test case $i"; done
+          - echo "[REPORT] Test Summary:"
+          - echo "[REPORT] Total Tests: 1,250"
+          - echo "[REPORT] Passed: 1,248"
+          - echo "[REPORT] Failed: 0"
+          - echo "[REPORT] Skipped: 2"
+          - echo "[REPORT] Duration: 4m 23s"
+          - for i in {1..25}; do echo "[COVERAGE] Analyzing coverage: $((i * 4))%"; done
+          - echo "[COVERAGE] Final Coverage: 89.4%"
+          - echo "[INFO] Uploading test artifacts..."
+          - for i in {1..20}; do echo "[UPLOAD] $i/20 test reports uploaded"; done
+          - echo "QA Automation Pipeline Completed Successfully"
+        tags:
+          - docker
