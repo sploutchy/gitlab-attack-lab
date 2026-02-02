@@ -5,6 +5,7 @@ GitLab Lab Populator - Reads a merged YAML config and configures GitLab instance
 
 import sys
 import os
+import json
 import yaml
 import requests
 import time
@@ -159,7 +160,17 @@ scan:
             try:
                 resp_text = e.response.text if hasattr(e, 'response') and e.response else ''
                 if resp_text:
-                    error_msg += f" - {resp_text[:200]}"
+                    # Try to parse as JSON for better error messages
+                    try:
+                        error_json = json.loads(resp_text)
+                        if 'message' in error_json:
+                            error_msg += f" - {error_json['message']}"
+                        elif 'error' in error_json:
+                            error_msg += f" - {error_json['error']}"
+                        else:
+                            error_msg += f" - {resp_text[:200]}"
+                    except:
+                        error_msg += f" - {resp_text[:200]}"
                 # For 403, also log the request data that caused it
                 if hasattr(e, 'response') and e.response and e.response.status_code == 403:
                     error_msg += f" (payload: {str(data)[:100]}...)" if data else ""
@@ -584,11 +595,22 @@ scan:
             'active': schedule.get('active', True)
         }
         
-        result = self.api_call('POST', f'projects/{project_id}/pipeline_schedules', data)
-        if result:
-            self.log("OK", f"Added schedule '{schedule.get('description')}' to project {project_id}")
-        else:
-            self.log("WARN", f"Failed to add schedule to project {project_id}")
+        # Retry logic: schedules may fail if project isn't fully initialized yet
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            result = self.api_call('POST', f'projects/{project_id}/pipeline_schedules', data)
+            if result:
+                self.log("OK", f"Added schedule '{schedule.get('description')}' to project {project_id}")
+                return True
+            
+            if attempt < max_attempts - 1:
+                self.log("INFO", f"Schedule creation failed for project {project_id}, retrying in 2 seconds... (attempt {attempt + 1}/{max_attempts})")
+                time.sleep(2)
+            else:
+                self.log("WARN", f"Failed to add schedule to project {project_id} after {max_attempts} attempts")
+        
+        return False
+
 
     
     def populate_from_yaml(self, yaml_file: str) -> bool:

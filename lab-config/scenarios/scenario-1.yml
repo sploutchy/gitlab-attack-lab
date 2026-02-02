@@ -1,8 +1,8 @@
 scenario:
-  name: "Scenario 1: Exposed AWS Credentials in CI"
-  description: "Three public projects demonstrating exposed AWS credentials in CI/CD pipeline"
+  name: "Scenario 1: Public CI/CD"
+  description: "Three public projects with CI/CD pipelines demonstrating exposure of secrets in unprotected variables"
   difficulty: "beginner"
-  tags: ["secrets-exposure", "aws-credentials", "ci-cd", "public-projects"]
+  tags: ["public-projects", "ci-cd", "secrets-exposure"]
 
 projects:
   - name: web-service
