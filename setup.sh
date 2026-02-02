@@ -123,8 +123,18 @@ POPULATE_EXIT=$?
 
 echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "="
 
+# Check for errors and warnings in the output
+ERROR_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[   ERROR\]" || echo 0)
+WARN_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[    WARN\]" || echo 0)
+
 if [ $POPULATE_EXIT -eq 0 ]; then
-    echo -e "${GREEN}✓${NC} GitLab structure populated"
+    if [ $ERROR_COUNT -eq 0 ] && [ $WARN_COUNT -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} GitLab structure populated successfully"
+    elif [ $ERROR_COUNT -gt 0 ]; then
+        echo -e "${YELLOW}⚠${NC} GitLab structure populated with ${ERROR_COUNT} errors and ${WARN_COUNT} warnings"
+    else
+        echo -e "${YELLOW}⚠${NC} GitLab structure populated with ${WARN_COUNT} warnings"
+    fi
     
     # Extract and save runner tokens to .env
     if echo "$POPULATE_OUTPUT" | grep -q "=== RUNNER_TOKENS ==="; then
@@ -225,13 +235,27 @@ echo -e "${GREEN}✓${NC} Pentester container configured with pipeleek"
 echo ""
 
 # Final summary
-echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║                  Setup Complete! 🎉                            ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${GREEN}✓ All services running${NC}"
-echo -e "${GREEN}✓ GitLab populated with lab data${NC}"
-echo -e "${GREEN}✓ Pentester container ready${NC}"
+if [ $ERROR_COUNT -eq 0 ] && [ $WARN_COUNT -eq 0 ]; then
+    echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║                  Setup Complete! 🎉                            ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${GREEN}✓ All services running${NC}"
+    echo -e "${GREEN}✓ GitLab populated with lab data${NC}"
+    echo -e "${GREEN}✓ Pentester container ready${NC}"
+else
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║            Setup Complete with Warnings ⚠                      ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${GREEN}✓ All services running${NC}"
+    if [ $ERROR_COUNT -gt 0 ]; then
+        echo -e "${YELLOW}⚠ GitLab populated with ${ERROR_COUNT} errors and ${WARN_COUNT} warnings${NC}"
+    else
+        echo -e "${YELLOW}⚠ GitLab populated with ${WARN_COUNT} warnings${NC}"
+    fi
+    echo -e "${GREEN}✓ Pentester container ready${NC}"
+fi
 echo ""
 echo -e "${YELLOW}Access GitLab:${NC}"
 echo "  URL:      http://127.0.0.1"
