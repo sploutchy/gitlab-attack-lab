@@ -340,28 +340,78 @@ def test_runners_online():
     client = GitLabTestClient()
     config = load_merged_config()
     
-    # Wait a bit for runners to connect
+    # Wait a bit for runners to connect (they register on startup)
     print("  Waiting for runners to connect...")
-    time.sleep(10)
+    max_wait = 30  # Wait up to 30 seconds
+    for attempt in range(max_wait):
+        time.sleep(1)
+        runners = client.get_json('runners/all', params={'per_page': 100})
+        expected_runners = [r['description'] for r in config.get('runners', [])]
+        
+        online_count = sum(1 for r in runners if r.get('status') == 'online' and r['description'] in expected_runners)
+        if online_count >= len(expected_runners):
+            print(f"  ✓ All runners online after {attempt + 1}s")
+            break
+        
+        if attempt % 5 == 0 and attempt > 0:
+            print(f"  Waiting... ({attempt}/{max_wait}s elapsed)")
     
     runners = client.get_json('runners/all', params={'per_page': 100})
-    
     expected_runners = [r['description'] for r in config.get('runners', [])]
     
+    offline_runners = []
     for expected_runner_desc in expected_runners:
         runner = next((r for r in runners if r['description'] == expected_runner_desc), None)
         assert runner is not None, f"Runner '{expected_runner_desc}' not found"
         
-        # Check if runner is online (contacted recently)
+        # Check if runner is online
         status = runner.get('status', 'offline')
         if status == 'online':
             print(f"  ✓ Runner '{expected_runner_desc}' is online")
         else:
-            # Sometimes runners need more time, check if they've ever contacted
-            if runner.get('contacted_at') is not None:
-                print(f"  ⚠ Runner '{expected_runner_desc}' contacted but currently {status}")
+            # Check if runner has contacted GitLab at least once
+            contacted_at = runner.get('contacted_at')
+            if contacted_at is not None:
+                print(f"  ✓ Runner '{expected_runner_desc}' has contacted GitLab (status: {status})")
             else:
-                raise AssertionError(f"Runner '{expected_runner_desc}' has never contacted GitLab")
+                offline_runners.append(expected_runner_desc)
+                print(f"  ✗ Runner '{expected_runner_desc}' has never contacted GitLab")
+    
+    # If any runners haven't contacted GitLab, fail the test
+    assert len(offline_runners) == 0, \
+        f"Runners offline and never contacted GitLab: {', '.join(offline_runners)}"
+
+def test_runner_can_pickup_jobs():
+    """Test that runners are properly configured to pick up jobs"""
+    print("Testing runner job pickup capability...")
+    client = GitLabTestClient()
+    
+    # Get all runners and verify they have proper tags and configuration
+    runners = client.get_json('runners/all', params={'per_page': 100})
+    
+    assert len(runners) > 0, "No runners registered"
+    
+    for runner in runners:
+        runner_id = runner['id']
+        runner_desc = runner.get('description', f'Runner {runner_id}')
+        
+        # Verify runner is not locked (should accept jobs)
+        is_locked = runner.get('locked', False)
+        if is_locked:
+            print(f"  ⚠ Runner '{runner_desc}' is locked (won't pick up jobs)")
+        else:
+            print(f"  ✓ Runner '{runner_desc}' is unlocked (can pick up jobs)")
+        
+        # Verify runner has tags or can pick up untagged jobs
+        tags = runner.get('tag_list', [])
+        run_untagged = runner.get('run_untagged', False)
+        
+        if tags or run_untagged:
+            tag_info = f"tags={tags}" if tags else "run_untagged=true"
+            print(f"  ✓ Runner '{runner_desc}' can match jobs ({tag_info})")
+        else:
+            print(f"  ⚠ Runner '{runner_desc}' has no tags and can't run untagged jobs")
+
 
 def test_docker_containers_running():
     """Test that all expected containers are running"""

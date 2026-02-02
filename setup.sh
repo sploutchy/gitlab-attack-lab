@@ -128,6 +128,9 @@ if [ $POPULATE_EXIT -eq 0 ]; then
     
     # Extract and save runner tokens to .env
     if echo "$POPULATE_OUTPUT" | grep -q "=== RUNNER_TOKENS ==="; then
+        # First, reload .env to get updated variables
+        source "$PROJECT_ROOT/.env"
+        
         echo "$POPULATE_OUTPUT" | sed -n '/=== RUNNER_TOKENS ===/,/=== END_RUNNER_TOKENS ===/p' | grep '=' | grep -v "===" | while IFS='=' read -r runner_name token; do
             # Convert description to env var format (e.g., shared-docker-runner -> RUNNER_TOKEN_DOCKER)
             if [[ "$runner_name" == *"docker"* ]]; then
@@ -139,15 +142,37 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             fi
         done
         
-        # Recreate runner containers to pick up new tokens from .env
-        echo -e "  Recreating runner containers with new tokens..."
-        if docker-compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | grep -i error; then
-            # If there was an error, continue anyway - might just be that containers are already running
-            true
+        # Reload environment after updating .env
+        source "$PROJECT_ROOT/.env"
+        
+        # Remove old runner containers to force recreation with new env vars
+        echo -e "  Removing old runner containers..."
+        docker-compose rm -f gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1 || true
+        
+        # Recreate runner containers with new tokens from .env
+        echo -e "  Creating runner containers with new tokens..."
+        docker-compose up -d gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
+        
+        # Wait for runners to register (up to 30 seconds)
+        echo -e "  Waiting for runners to register and come online..."
+        RUNNER_WAIT=0
+        while [ $RUNNER_WAIT -lt 30 ]; do
+            REGISTERED=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
+                "http://127.0.0.1/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' || echo 0)
+            
+            if [ "$REGISTERED" -ge 2 ]; then
+                echo -e "${GREEN}  ✓${NC} Runners registered and online (${REGISTERED} runners)"
+                break
+            fi
+            
+            sleep 2
+            RUNNER_WAIT=$((RUNNER_WAIT + 2))
+        done
+        
+        if [ "$REGISTERED" -lt 2 ]; then
+            echo -e "${YELLOW}  ⚠${NC}  Only ${REGISTERED} runners online (expected 2)"
+            echo -e "${YELLOW}     Runners may take additional time to come online${NC}"
         fi
-        # Give containers a moment to start
-        sleep 3
-        echo -e "${GREEN}  ✓${NC} Runner containers recreated"
     fi
 else
     echo -e "${RED}✗${NC} Failed to populate GitLab structure"
