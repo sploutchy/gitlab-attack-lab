@@ -165,10 +165,11 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
         fi
         
-        # Wait for runners to register (up to 30 seconds)
+        # Wait for runners to register (up to 60 seconds)
         echo -e "  Waiting for runners to register and come online..."
         RUNNER_WAIT=0
-        while [ $RUNNER_WAIT -lt 30 ]; do
+        RUNNERS_FOUND=0
+        while [ $RUNNER_WAIT -lt 60 ]; do
             REGISTERED=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
                 "http://127.0.0.1/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' 2>/dev/null || echo "0")
             
@@ -177,6 +178,7 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             
             if [ "$REGISTERED" -ge 2 ] 2>/dev/null; then
                 echo -e "${GREEN}  ✓${NC} Runners registered and online (${REGISTERED} runners)"
+                RUNNERS_FOUND=1
                 break
             fi
             
@@ -184,7 +186,7 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             RUNNER_WAIT=$((RUNNER_WAIT + 2))
         done
         
-        if [ "$REGISTERED" -lt 2 ]; then
+        if [ "$RUNNERS_FOUND" -ne 1 ]; then
             echo -e "${YELLOW}  ⚠${NC}  Only ${REGISTERED} runners online (expected 2)"
             echo -e "${YELLOW}     Runners may take additional time to come online${NC}"
         fi
@@ -198,18 +200,32 @@ echo ""
 # Step 5: Configure pentester container
 echo -e "${YELLOW}[STEP 5]${NC} Configuring pentester container..."
 
-# Create pipeleek config directory
-docker exec pentester mkdir -p /root/.config/pipeleek 2>/dev/null || true
+# Wait for pentester container to be running (up to 30 seconds)
+PENTESTER_WAIT=0
+while [ $PENTESTER_WAIT -lt 30 ]; do
+    if docker exec pentester true 2>/dev/null; then
+        break
+    fi
+    sleep 1
+    PENTESTER_WAIT=$((PENTESTER_WAIT + 1))
+done
 
-# Create pipeleek config with actual token (using docker exec directly)
-# Note: Use /root/.config/pipeleek/pipeleek.yaml as this is what pipeleek expects
-docker exec -T pentester bash -c "echo 'gitlab:' > /root/.config/pipeleek/pipeleek.yaml && echo '  url: http://gitlab' >> /root/.config/pipeleek/pipeleek.yaml && echo \"  token: $GITLAB_ADMIN_TOKEN\" >> /root/.config/pipeleek/pipeleek.yaml" 2>/dev/null || true
+if ! docker exec pentester true 2>/dev/null; then
+    echo -e "${YELLOW}⚠${NC} Pentester container not responding, skipping configuration"
+    echo -e "${YELLOW}   You may need to manually run: docker-compose logs pentester${NC}"
+else
+    # Create pipeleek config directory
+    docker exec pentester mkdir -p /root/.config/pipeleek 2>/dev/null || true
 
-# Set proper permissions
-docker exec pentester chmod 600 /root/.config/pipeleek/pipeleek.yaml 2>/dev/null || true
+    # Create pipeleek config with actual token (using docker exec directly)
+    # Note: Use /root/.config/pipeleek/pipeleek.yaml as this is what pipeleek expects
+    docker exec -T pentester bash -c "echo 'gitlab:' > /root/.config/pipeleek/pipeleek.yaml && echo '  url: http://gitlab' >> /root/.config/pipeleek/pipeleek.yaml && echo \"  token: $GITLAB_ADMIN_TOKEN\" >> /root/.config/pipeleek/pipeleek.yaml" 2>/dev/null || true
 
-# Update bashrc with credentials
-docker exec pentester bash -c "cat >> ~/.bashrc << 'BASHRC'
+    # Set proper permissions
+    docker exec pentester chmod 600 /root/.config/pipeleek/pipeleek.yaml 2>/dev/null || true
+
+    # Update bashrc with credentials
+    docker exec pentester bash -c "cat >> ~/.bashrc << 'BASHRC'
 
 # GitLab Lab Credentials
 export GITLAB_URL=\"http://gitlab\"
@@ -234,7 +250,8 @@ echo \"Try: pipeleek gl enum\"
 echo \"\"
 BASHRC" 2>/dev/null || true
 
-echo -e "${GREEN}✓${NC} Pentester container configured with pipeleek"
+    echo -e "${GREEN}✓${NC} Pentester container configured with pipeleek"
+fi
 echo ""
 
 # Final summary
@@ -284,10 +301,15 @@ echo "  # Stop and remove all data"
 echo "  docker-compose down -v"
 echo ""
 
-# Option to enter pentester shell
-read -p "Enter pentester container now? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${BLUE}Entering pentester container...${NC}"
-    docker-compose exec pentester /bin/bash
+# Option to enter pentester shell (only if container is running)
+if docker exec pentester true 2>/dev/null; then
+    read -p "Enter pentester container now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${BLUE}Entering pentester container...${NC}"
+        docker-compose exec -it pentester /bin/bash
+    fi
+else
+    echo -e "${YELLOW}⚠ Pentester container is not running.${NC}"
+    echo "  You can enter it later with: docker-compose exec -it pentester /bin/bash"
 fi

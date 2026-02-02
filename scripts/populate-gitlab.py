@@ -288,36 +288,51 @@ scan:
         return tokens
 
     def _create_file(self, project_id: int, file_path: str, content: str, branch: str, commit_message: str) -> bool:
-        """Create or update a file in the repository"""
-        # First check if file exists
+        """Create or update a file in the repository with retry logic"""
         encoded_path = file_path.replace('/', '%2F')
-        existing = self.api_call('GET', f'projects/{project_id}/repository/files/{encoded_path}', params={'ref': branch})
+        max_attempts = 3
         
-        if existing:
-            # File exists, update it - must include last_commit_id
-            data = {
-                'branch': branch,
-                'content': content,
-                'commit_message': commit_message,
-                'last_commit_id': existing.get('last_commit_id') or existing.get('commit_id')
-            }
-            result = self.api_call('PUT', f'projects/{project_id}/repository/files/{encoded_path}', data)
-            if result:
-                self.log("OK", f"Updated {file_path} in project {project_id}")
-                return True
-        else:
-            # File doesn't exist, create it
-            data = {
-                'branch': branch,
-                'content': content,
-                'commit_message': commit_message
-            }
-            result = self.api_call('POST', f'projects/{project_id}/repository/files/{encoded_path}', data)
-            if result:
-                self.log("OK", f"Created {file_path} in project {project_id}")
-                return True
+        for attempt in range(max_attempts):
+            try:
+                # First check if file exists
+                existing = self.api_call('GET', f'projects/{project_id}/repository/files/{encoded_path}', params={'ref': branch})
+                
+                if existing:
+                    # File exists, update it - must include last_commit_id
+                    data = {
+                        'branch': branch,
+                        'content': content,
+                        'commit_message': commit_message,
+                        'last_commit_id': existing.get('last_commit_id') or existing.get('commit_id')
+                    }
+                    result = self.api_call('PUT', f'projects/{project_id}/repository/files/{encoded_path}', data)
+                    if result:
+                        self.log("OK", f"Updated {file_path} in project {project_id}")
+                        return True
+                else:
+                    # File doesn't exist, create it
+                    data = {
+                        'branch': branch,
+                        'content': content,
+                        'commit_message': commit_message
+                    }
+                    result = self.api_call('POST', f'projects/{project_id}/repository/files/{encoded_path}', data)
+                    if result:
+                        self.log("OK", f"Created {file_path} in project {project_id}")
+                        return True
+                
+                # If we get here, the API call returned None (error)
+                # For first two attempts, wait and retry
+                if attempt < max_attempts - 1:
+                    self.log("INFO", f"File creation failed for project {project_id}, retrying in 3 seconds... (attempt {attempt + 1}/{max_attempts})")
+                    time.sleep(3)
+                
+            except Exception as e:
+                self.log("INFO", f"File creation error for project {project_id}: {str(e)}, retrying... (attempt {attempt + 1}/{max_attempts})")
+                if attempt < max_attempts - 1:
+                    time.sleep(3)
 
-        self.log("WARN", f"Failed to create/update {file_path} in project {project_id}")
+        self.log("WARN", f"Failed to create/update {file_path} in project {project_id} after {max_attempts} attempts")
         return False
 
     def _ensure_ci_config(self, project_id: int, project_path: str, default_branch: Optional[str]):

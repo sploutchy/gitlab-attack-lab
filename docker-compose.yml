@@ -159,11 +159,8 @@ services:
       - ./pentester/config:/root/.config
     environment:
       GITLAB_URL: "http://gitlab"
-      GITLAB_TOKEN: "${PENTESTER_TOKEN}"
+      GITLAB_TOKEN: "${PENTESTER_TOKEN:-}"
       PS1: "[pentester@lab] \\w $ "
-    depends_on:
-      gitlab:
-        condition: service_healthy
     command: /bin/bash -c "while true; do sleep 3600; done"
 
 networks:
