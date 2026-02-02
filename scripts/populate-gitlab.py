@@ -443,10 +443,42 @@ scan:
         if result:
             self.log("OK", f"Added {username} to group {group_id}")
         else:
-            self.log("WARN", f"Failed to add {username} to group")
+            # Check if this was a 409 (member already exists) - that's okay on re-run
+            self.log("WARN", f"Failed to add {username} to group (may already be a member)")
     
     def create_project(self, project: Dict, parent_group: Optional[str] = None) -> Optional[int]:
-        """Create a project in GitLab"""
+        """Create a project in GitLab (idempotent - checks if exists first)"""
+        # Check if project already exists (idempotent re-runs)
+        search_path = project['path']
+        existing = self.api_call('GET', f'projects?search={search_path}')
+        if existing and len(existing) > 0:
+            for p in existing:
+                if p.get('path') == search_path:
+                    project_id = p['id']
+                    self.projects_map[project['path']] = project_id
+                    self.log("OK", f"Project already exists: {project['name']} (ID: {project_id})")
+                    
+                    # Still add/update variables (may be new)
+                    for var in project.get('variables', []):
+                        self._add_project_variable(project_id, var)
+                    
+                    # Still ensure CI config file exists (may be new)
+                    ci_cd_file_content = project.get('ci_cd_file')
+                    if ci_cd_file_content:
+                        self._create_file(
+                            project_id=project_id,
+                            file_path='.gitlab-ci.yml',
+                            content=ci_cd_file_content,
+                            branch=project.get('default_branch', 'main'),
+                            commit_message='Add GitLab CI pipeline configuration'
+                        )
+                    
+                    # Still add schedules if needed
+                    for schedule in project.get('schedules', []):
+                        self._add_project_schedule(project_id, schedule)
+                    
+                    return project_id
+        
         repo_url = project.get('repo_url')
         data = {
             'name': project['name'],
@@ -454,6 +486,7 @@ scan:
             'description': project.get('description', ''),
             'visibility': project.get('visibility', 'private'),
             'issues_enabled': project.get('issues_enabled', True),
+            'merge_requests_enabled': project.get('merge_requests_enabled', True),
             'wiki_enabled': project.get('wiki_enabled', False),
             'snippets_enabled': project.get('snippets_enabled', False),
             'builds_enabled': project.get('ci_cd_enabled', False),
@@ -504,7 +537,7 @@ scan:
             
             return project_id
         else:
-            self.log("WARN", f"Failed to create project: {project['name']}")
+            self.log("WARN", f"Failed to create project: {project['name']} (payload: name={project.get('name')}, path={project.get('path')}, visibility={project.get('visibility')})")
             return None
     
     def _import_via_git_clone(self, project_id: int, project_path: str, repo_url: str):

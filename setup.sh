@@ -170,9 +170,12 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         RUNNER_WAIT=0
         while [ $RUNNER_WAIT -lt 30 ]; do
             REGISTERED=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
-                "http://127.0.0.1/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' || echo 0)
+                "http://127.0.0.1/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' 2>/dev/null || echo "0")
             
-            if [ "$REGISTERED" -ge 2 ]; then
+            # Clean up the variable to remove any whitespace/newlines
+            REGISTERED=$(echo "$REGISTERED" | tr -d '\n' | tail -1)
+            
+            if [ "$REGISTERED" -ge 2 ] 2>/dev/null; then
                 echo -e "${GREEN}  ✓${NC} Runners registered and online (${REGISTERED} runners)"
                 break
             fi
