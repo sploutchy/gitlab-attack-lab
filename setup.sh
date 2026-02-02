@@ -151,7 +151,9 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         
         # Recreate runner containers with new tokens from .env
         echo -e "  Creating runner containers with new tokens..."
-        docker-compose up -d gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1
+        if ! docker-compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | tee /tmp/runner-create.log | grep -v "^$" > /dev/null; then
+            echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
+        fi
         
         # Wait for runners to register (up to 30 seconds)
         echo -e "  Waiting for runners to register and come online..."

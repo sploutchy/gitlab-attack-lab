@@ -483,12 +483,24 @@ scan:
             for var in project.get('variables', []):
                 self._add_project_variable(project_id, var)
 
-            # Add pipeline schedules
+            # Create CI config file (inline or template-based)
+            ci_cd_file_content = project.get('ci_cd_file')
+            if ci_cd_file_content:
+                # Inline CI file defined in YAML
+                self._create_file(
+                    project_id=project_id,
+                    file_path='.gitlab-ci.yml',
+                    content=ci_cd_file_content,
+                    branch=project.get('default_branch', 'main'),
+                    commit_message='Add GitLab CI pipeline configuration'
+                )
+            else:
+                # Use template-based CI config (legacy)
+                self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
+
+            # Add pipeline schedules (must be after CI file creation)
             for schedule in project.get('schedules', []):
                 self._add_project_schedule(project_id, schedule)
-
-            # Add default CI config (only if repo didn't have one)
-            self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
             
             return project_id
         else:
