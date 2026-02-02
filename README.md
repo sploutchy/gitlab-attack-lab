@@ -810,24 +810,33 @@ Then restart: `docker-compose down && docker-compose up -d`
 
 ## 🧪 Testing
 
-The project includes a comprehensive test suite that validates all components:
+The project includes tests for validation and quality assurance:
 
 ### Running Tests Locally
 
+**Full Integration Tests** (requires local GitLab instance):
+
 ```bash
-# Standalone integration test
-python tests/test_integration.py
+# First, start the lab
+make setup
 
-# Pytest suite (recommended)
+# Then run integration tests
+pytest tests/test_integration.py tests/test_pytest.py -v
+
+# Or run all tests
 pytest tests/ -v
+```
 
-# With timeout protection
-pytest tests/ -v --timeout=300
+**Static Validation Only** (no GitLab required):
+
+```bash
+# Syntax and configuration validation
+pytest tests/test_static.py -v
 ```
 
 ### Test Coverage
 
-The test suite validates:
+**Integration Tests** (local only):
 - ✅ GitLab health and API authentication
 - ✅ All users created correctly
 - ✅ All groups and memberships configured
@@ -836,9 +845,19 @@ The test suite validates:
 - ✅ Runners registered and online
 - ✅ Pipeleek installed and configured
 
+**Static Tests** (CI/CD):
+- ✅ Python script syntax validation
+- ✅ Bash script syntax validation
+- ✅ YAML configuration validation
+- ✅ Project structure validation
+
 ### CI/CD Testing
 
-Tests run automatically in GitHub Actions on every push and PR. See [tests/README.md](tests/README.md) for details.
+⚠️ **Note:** Full integration tests cannot run in GitHub Actions due to GitLab's resource requirements (requires 4-8GB RAM, GitHub Actions provides 7GB total with other services).
+
+The CI pipeline runs **static validation only** (syntax checks, YAML validation, import checks). For full integration testing, run locally with `make setup && pytest tests/`.
+
+See the badge at the top of this README for CI status.
 
 ## Documentation
 

@@ -1,4 +1,8 @@
-name: GitLab Attack Lab - Integration Tests
+name: GitLab Attack Lab - Static Validation
+
+# Note: Full integration tests require local execution due to GitLab's resource requirements.
+# This workflow runs static validation only (syntax checks, YAML validation, etc.)
+# For full integration tests, run locally: make setup && pytest tests/
 
 on:
   push:
@@ -8,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-setup:
+  static-validation:
     runs-on: ubuntu-latest
     
     steps:
@@ -23,43 +27,20 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pyyaml pytest pytest-timeout
+          pip install requests pyyaml pytest
       
-      - name: Increase vm.max_map_count for GitLab
+      - name: Run static validation tests
         run: |
-          sudo sysctl -w vm.max_map_count=262144
+          echo "Running static validation (syntax, imports, config files)..."
+          python -m pytest tests/test_static.py -v --tb=short
       
-      - name: Start GitLab Attack Lab
+      - name: Validate bash scripts
         run: |
-          echo "Starting lab environment..."
-          make setup
+          echo "Validating bash script syntax..."
+          bash -n setup.sh
       
-      - name: Wait for services to stabilize
-        run: sleep 30
-      
-      - name: Run integration tests
+      - name: Validate YAML files
         run: |
-          python -m pytest tests/ -v --tb=short
-      
-      - name: Check runner status
-        if: always()
-        run: |
-          echo "=== Runner Logs (Docker) ==="
-          docker logs gitlab-runner-docker 2>&1 | tail -50 || true
-          echo ""
-          echo "=== Runner Logs (Shell) ==="
-          docker logs gitlab-runner-shell 2>&1 | tail -50 || true
-      
-      - name: Check GitLab logs on failure
-        if: failure()
-        run: |
-          echo "=== GitLab Logs ==="
-          docker-compose logs --tail=100 gitlab || true
-          echo ""
-          echo "=== Container Status ==="
-          docker-compose ps || true
-      
-      - name: Cleanup
-        if: always()
-        run: |
-          make destroy || true
+          echo "Validating YAML configuration files..."
+          python -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('lab-config/structure.yml'))"
+          echo "All YAML files are valid!"
