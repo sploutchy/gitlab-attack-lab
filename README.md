@@ -815,6 +815,20 @@ docker-compose logs -f gitlab | grep "unicorn"
 2. Check GitLab is healthy: `curl http://localhost/-/health`
 3. Try authenticating manually: `curl -X POST http://localhost/api/v4/session -d "username=root&password=..."`
 
+## Recent Improvements ✨
+
+**Latest improvements to setup reliability:**
+
+- ✅ **Idempotent project creation**: Projects check if they exist before creation, safe to re-run setup
+- ✅ **Automatic file creation retries**: CI files retry up to 3 times with delays if initial creation fails
+- ✅ **Extended runner wait**: Timeout increased to 60 seconds (was 30) to ensure all runners come online
+- ✅ **Improved pentester container**: Starts independently and validates readiness before configuration
+- ✅ **Better error handling**: Clear messages on retries and graceful handling of missing containers
+
+For detailed information on recent fixes, see:
+- [FIX_SUMMARY.md](FIX_SUMMARY.md) - Technical details of all improvements
+- [SETUP_GUIDE.md](SETUP_GUIDE.md) - Complete troubleshooting and expected output reference
+
 ## Performance Tuning
 
 If running into resource constraints, adjust in `docker-compose.yml`:
