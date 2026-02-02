@@ -38,20 +38,32 @@ In GitLab:
 ### 4. Start Hacking in the Pentester Container
 
 ```bash
-docker-compose exec -it pentester /bin/bash
+make pentester-shell
 ```
 
-Inside the container, use your token:
+Inside the container, create a pipeleek config file with your token:
 
 ```bash
-export GITLAB_TOKEN=<your-token-from-step-3>
-export GITLAB_URL=http://gitlab
+# Create the config directory
+mkdir -p ~/.config/pipeleek
 
-# Use pipeleek to enumerate GitLab
-pipeleek gl enum         # Enumerate users, groups, projects
-pipeleek gl project-vars # Find exposed variables
+# Create the config file with your token
+cat > ~/.config/pipeleek/pipeleek.yaml << EOF
+gitlab:
+  url: http://gitlab
+  token: <your-token-from-step-3>
+EOF
 
-# Or use the GitLab API directly
+# Set proper permissions
+chmod 600 ~/.config/pipeleek/pipeleek.yaml
+
+# Now use pipeleek to enumerate GitLab
+pipeleek gl enum                  # Enumerate users, groups, projects
+pipeleek gl project-vars          # Find exposed variables
+pipeleek gl runners               # List runners
+
+# Or use the GitLab API directly with curl
+GITLAB_TOKEN=<your-token-from-step-3>
 curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects | jq
 curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects/1/variables | jq
 ```
@@ -70,8 +82,8 @@ SCENARIOS="lab-config/scenarios/scenario-1.yml" make setup
 ## 🛑 Stop the Lab
 
 ```bash
-docker-compose down          # Stop containers
-docker-compose down -v       # Stop and remove all data
+make stop               # Stop containers
+make destroy            # Stop and remove all data
 ```
 
 ## 📝 Notes
