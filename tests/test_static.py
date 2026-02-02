@@ -250,7 +250,8 @@ class TestDataFiles:
         for project in projects:
             assert 'name' in project, f"Project missing name: {project}"
             assert 'path' in project, f"Project {project.get('name')} missing path"
-            assert 'group' in project, f"Project {project.get('name')} missing group"
+            # group is optional - projects can be instance-level or group-level
+
     
     def test_merged_has_valid_schedules(self):
         """Verify projects with schedules have valid schedule configuration"""
