@@ -1,4 +1,4 @@
-.PHONY: help setup start stop restart destroy status logs shell pentester-shell
+.PHONY: help setup start stop restart destroy status logs shell pentester-shell merge-scenarios validate-scenarios
 
 DOCKER_COMPOSE := docker-compose
 
@@ -9,6 +9,8 @@ help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup              - Complete setup (ONE COMMAND!)"
+	@echo "  make merge-scenarios     - Merge scenario configs into a single YAML"
+	@echo "  make validate-scenarios  - Validate scenarios for duplicates and references"
 	@echo ""
 	@echo "Container Management:"
 	@echo "  make start              - Start services"
@@ -31,6 +33,14 @@ setup:
 		echo "[+] .env file created!"; \
 	fi
 	@bash setup.sh
+
+merge-scenarios:
+	@python3 scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --output /tmp/gitlab-lab-merged.yml
+	@echo "[+] Merged config written to /tmp/gitlab-lab-merged.yml"
+
+validate-scenarios:
+	@python3 scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --validate-only
+	@echo "[+] Scenario validation passed"
 
 start:
 	@echo "[*] Starting services..."

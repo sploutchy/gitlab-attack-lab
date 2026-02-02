@@ -16,6 +16,10 @@ from typing import Dict, List, Optional
 GITLAB_URL = os.getenv('GITLAB_URL', 'http://127.0.0.1')
 API_BASE = f"{GITLAB_URL}/api/v4"
 ENV_FILE = '.env'
+MERGE_SCRIPT = 'scripts/merge-scenarios.py'
+BASE_CONFIG = 'lab-config/base.yml'
+SCENARIOS_DIR = 'lab-config/scenarios'
+MERGED_CONFIG = '/tmp/gitlab-lab-merged-test.yml'
 
 class GitLabTestClient:
     """Client for testing GitLab API"""
@@ -53,13 +57,29 @@ class GitLabTestClient:
         """Make GET request and return JSON"""
         return self.get(endpoint, **kwargs).json()
 
-def load_structure_config() -> dict:
-    """Load the structure.yml configuration"""
-    config_path = 'lab-config/structure.yml'
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"{config_path} not found")
-    
-    with open(config_path, 'r') as f:
+def load_merged_config() -> dict:
+    """Load merged configuration from base + scenarios"""
+    if not os.path.exists(MERGE_SCRIPT):
+        raise FileNotFoundError(f"{MERGE_SCRIPT} not found")
+    if not os.path.exists(BASE_CONFIG):
+        raise FileNotFoundError(f"{BASE_CONFIG} not found")
+    if not os.path.exists(SCENARIOS_DIR):
+        raise FileNotFoundError(f"{SCENARIOS_DIR} not found")
+
+    result = subprocess.run(
+        [
+            'python3', MERGE_SCRIPT,
+            '--base', BASE_CONFIG,
+            '--scenarios', SCENARIOS_DIR,
+            '--output', MERGED_CONFIG
+        ],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to merge scenarios: {result.stderr}")
+
+    with open(MERGED_CONFIG, 'r') as f:
         return yaml.safe_load(f)
 
 def test_gitlab_is_healthy():
@@ -87,10 +107,10 @@ def test_admin_authentication():
     print(f"  ✓ Authenticated as {user.get('username')} (admin: {user.get('is_admin')})")
 
 def test_users_created():
-    """Test that all users from structure.yml are created"""
+    """Test that all users from merged scenarios are created"""
     print("Testing user creation...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     expected_users = [u['username'] for u in config['users'] if u['username'] != 'root']
     
@@ -105,10 +125,10 @@ def test_users_created():
     print(f"  ✓ All {len(expected_users)} users created successfully")
 
 def test_groups_created():
-    """Test that all groups from structure.yml are created"""
+    """Test that all groups from merged scenarios are created"""
     print("Testing group creation...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     expected_groups = [g['path'] for g in config['groups']]
     
@@ -126,7 +146,7 @@ def test_group_memberships():
     """Test that group members are added correctly"""
     print("Testing group memberships...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     for group_cfg in config['groups']:
         group_path = group_cfg['path']
@@ -148,10 +168,10 @@ def test_group_memberships():
             print(f"  ✓ User '{expected_username}' is member of '{group_path}'")
 
 def test_projects_created():
-    """Test that all projects from structure.yml are created"""
+    """Test that all projects from merged scenarios are created"""
     print("Testing project creation...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     expected_projects = [f"{p['group']}/{p['path']}" for p in config['projects']]
     
@@ -169,7 +189,7 @@ def test_repositories_imported():
     """Test that repositories have content (were imported)"""
     print("Testing repository imports...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     for project_cfg in config['projects']:
         if not project_cfg.get('repo_url'):
@@ -196,7 +216,7 @@ def test_ci_variables():
     """Test that CI/CD variables are created"""
     print("Testing CI/CD variables...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     for project_cfg in config['projects']:
         if not project_cfg.get('variables'):
@@ -224,7 +244,7 @@ def test_ci_configs():
     """Test that .gitlab-ci.yml files exist"""
     print("Testing CI configurations...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     ci_project_count = 0
     for project_cfg in config['projects']:
@@ -259,7 +279,7 @@ def test_runners_registered():
     """Test that runners are registered"""
     print("Testing runner registration...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     # Get all runners (admin endpoint)
     runners = client.get_json('runners/all', params={'per_page': 100})
@@ -278,7 +298,7 @@ def test_runners_online():
     """Test that runners are online and active"""
     print("Testing runner status...")
     client = GitLabTestClient()
-    config = load_structure_config()
+    config = load_merged_config()
     
     # Wait a bit for runners to connect
     print("  Waiting for runners to connect...")

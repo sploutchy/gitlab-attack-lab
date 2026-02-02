@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GitLab Lab Populator - Reads structure.yml and configures GitLab instance
+GitLab Lab Populator - Reads a merged YAML config and configures GitLab instance
 """
 
 import sys
@@ -629,7 +629,7 @@ scan:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 populate-gitlab.py <config.yml> [gitlab_url] [admin_token]")
+        print("Usage: python3 populate-gitlab.py <merged-config.yml> [gitlab_url] [admin_token]")
         sys.exit(1)
     
     config_file = sys.argv[1]

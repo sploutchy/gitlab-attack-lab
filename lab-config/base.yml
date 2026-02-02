@@ -1,0 +1,10 @@
+lab:
+  name: "GitLab Attack Lab"
+  description: "Security research and pentesting lab for GitLab CI/CD"
+
+users:
+  - username: root
+    email: root@localhost
+    password: R00t@L4b_Adm1n_2024
+    is_admin: true
+    state: active

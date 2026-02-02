@@ -48,6 +48,32 @@ make config
 make pentester-shell
 ```
 
+## 🧩 Scenario Configuration
+
+The lab configuration is split into **scenarios**. Each scenario is a separate YAML file under lab-config/scenarios. These files are merged with lab-config/base.yml before importing into GitLab.
+
+**File layout:**
+
+```
+lab-config/
+├── base.yml                # Base config (lab metadata + root user)
+└── scenarios/
+    ├── default.yml         # Default lab scenario
+    └── <your-scenario>.yml # Additional scenarios
+```
+
+**How merging works:**
+- base.yml is loaded first
+- all scenario files are merged in alphabetical order
+- users, groups, projects, runners are concatenated
+- duplicates are rejected (username, group path, project path, runner description)
+
+**Run a subset of scenarios:**
+
+```bash
+SCENARIOS="lab-config/scenarios/default.yml" make setup
+```
+
 ## 📖 Playing Through the Lab
 
 ### Phase 1: Access GitLab Web Interface
@@ -231,7 +257,12 @@ curl -H "PRIVATE-TOKEN: glpat-attack-lab-admin-token-2024" \
 
 ### Declarative YAML Configuration
 
-The lab uses a declarative YAML-based approach to define all GitLab data. The configuration file is at `lab-config/structure.yml` and defines:
+The lab uses a declarative YAML-based approach split into **base** and **scenario** files:
+
+- lab-config/base.yml (lab metadata + root user)
+- lab-config/scenarios/*.yml (users, groups, projects, runners, variables)
+
+Scenarios are merged in alphabetical order before import. The merged config defines:
 
 - Users (with credentials and access levels)
 - Groups (with visibility settings)
@@ -245,7 +276,7 @@ Runners are created via GitLab API with authentication tokens. Specify `scope: i
 
 #### Customizing the Lab
 
-Edit `lab-config/structure.yml` to:
+Edit scenario files under lab-config/scenarios to:
 - Add/remove users, groups, or projects
 - Modify variable values
 - Change pipeline configurations
@@ -253,12 +284,12 @@ Edit `lab-config/structure.yml` to:
 
 Then apply changes:
 ```bash
-make config
+make setup
 ```
 
 #### Example: Add a New User
 
-Edit `lab-config/structure.yml`:
+Edit lab-config/scenarios/default.yml:
 ```yaml
 users:
   - username: newuser
@@ -270,7 +301,7 @@ users:
 
 Then apply:
 ```bash
-make config
+make setup
 ```
 
 ### Use Localhost Instead of Hostname
@@ -672,7 +703,8 @@ gitlab-attack-lab/
 ├── .env                        # Configuration
 ├── .env.example                # Example configuration
 ├── lab-config/
-│   └── structure.yml           # Declarative lab definition
+│   ├── base.yml                # Base config (lab + root user)
+│   └── scenarios/              # Scenario files
 ├── scripts/
 │   └── populate-gitlab.py       # Populator script
 ├── pentester/

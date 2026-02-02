@@ -41,7 +41,7 @@ class TestUsers:
     """Test user creation"""
     
     def test_all_users_created(self, gitlab_url, admin_token, structure_config):
-        """Test that all users from structure.yml are created"""
+        """Test that all users from merged scenarios are created"""
         headers = {'PRIVATE-TOKEN': admin_token}
         response = requests.get(f"{gitlab_url}/api/v4/users", headers=headers)
         

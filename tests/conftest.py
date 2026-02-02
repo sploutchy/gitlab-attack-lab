@@ -32,12 +32,34 @@ def admin_token():
 
 @pytest.fixture(scope='session')
 def structure_config():
-    """Load structure.yml configuration"""
+    """Load merged configuration from base + scenarios"""
     import yaml
-    config_path = 'lab-config/structure.yml'
+    import subprocess
     
-    if not os.path.exists(config_path):
-        pytest.fail(f"{config_path} not found")
+    base_config = 'lab-config/base.yml'
+    scenarios_dir = 'lab-config/scenarios'
+    merge_script = 'scripts/merge-scenarios.py'
+    merged_output = '/tmp/gitlab-lab-merged-test.yml'
     
-    with open(config_path, 'r') as f:
+    if not os.path.exists(base_config):
+        pytest.fail(f"{base_config} not found")
+    if not os.path.exists(scenarios_dir):
+        pytest.fail(f"{scenarios_dir} not found")
+    if not os.path.exists(merge_script):
+        pytest.fail(f"{merge_script} not found")
+    
+    result = subprocess.run(
+        [
+            'python3', merge_script,
+            '--base', base_config,
+            '--scenarios', scenarios_dir,
+            '--output', merged_output
+        ],
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        pytest.fail(f"Failed to merge scenarios: {result.stderr}")
+    
+    with open(merged_output, 'r') as f:
         return yaml.safe_load(f)

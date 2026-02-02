@@ -107,8 +107,18 @@ fi
 # Install required Python packages
 pip3 install -q pyyaml requests 2>/dev/null || true
 
+# Merge scenarios into a single config
+MERGED_CONFIG="/tmp/gitlab-lab-merged.yml"
+SCENARIO_INPUTS=${SCENARIOS:-"$PROJECT_ROOT/lab-config/scenarios"}
+
+echo -e "${YELLOW}  •${NC} Merging scenario files..."
+python3 "$PROJECT_ROOT/scripts/merge-scenarios.py" \
+    --base "$PROJECT_ROOT/lab-config/base.yml" \
+    --scenarios $SCENARIO_INPUTS \
+    --output "$MERGED_CONFIG" 2>&1
+
 # Run the populator and capture runner tokens
-POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$PROJECT_ROOT/lab-config/structure.yml" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN" 2>&1)
+POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$MERGED_CONFIG" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN" 2>&1)
 POPULATE_EXIT=$?
 
 echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "="

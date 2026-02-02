@@ -1,35 +1,28 @@
-# GitLab Attack Lab - Declarative Structure
-# This file defines all users, groups, projects, variables, and permissions
-
-lab:
-  name: "GitLab Attack Lab"
-  description: "Security research and pentesting lab for GitLab CI/CD"
+scenario:
+  name: "Default Lab Scenario"
+  description: "Baseline lab with users, groups, projects, runners, and CI/CD variables"
+  difficulty: "beginner"
+  tags: ["baseline", "ci-cd", "secrets"]
 
 users:
-  - username: root
-    email: root@localhost
-    password: R00t@L4b_Adm1n_2024
-    is_admin: true
-    state: active
-    
   - username: alice
     email: alice@lab.local
     password: SecurePass2024!
     is_admin: false
     state: active
-    
+  
   - username: bob
     email: bob@lab.local
     password: SecurePass2024!
     is_admin: false
     state: active
-    
+  
   - username: charlie
     email: charlie@lab.local
     password: SecurePass2024!
     is_admin: false
     state: active
-    
+  
   - username: pentester
     email: pentester@lab.local
     password: SecureP3nt3st3r@2024!
@@ -46,7 +39,7 @@ groups:
         access_level: 50  # Owner
       - username: alice
         access_level: 40  # Maintainer
-        
+      
   - name: devops-team
     path: devops-team
     description: "DevOps and infrastructure team"
@@ -56,7 +49,7 @@ groups:
         access_level: 50  # Owner
       - username: charlie
         access_level: 30  # Developer
-        
+      
   - name: development-team
     path: development-team
     description: "Development team"
@@ -121,7 +114,7 @@ projects:
         value: "registry.lab.local:5000"
         protected: false
         masked: false
-        
+      
   - name: api-service
     path: api-service
     group: development-team
@@ -144,7 +137,7 @@ projects:
         value: "postgres://user:pass@db.local/api"
         protected: true
         masked: true
-        
+      
   - name: mobile-app
     path: mobile-app
     group: devops-team
@@ -162,7 +155,7 @@ projects:
         value: "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDExample"
         protected: true
         masked: true
-        
+      
   - name: infrastructure
     path: infrastructure
     group: devops-team
@@ -184,7 +177,7 @@ projects:
         value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
         protected: true
         masked: true
-        
+      
   - name: security-tools
     path: security-tools
     group: security-team
