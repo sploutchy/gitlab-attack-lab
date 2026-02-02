@@ -41,21 +41,18 @@ In GitLab:
 make pentester-shell
 ```
 
-Inside the container, create a pipeleek config file with your token:
+Inside the container, edit the pipeleek config file with vim and add your token:
 
 ```bash
-# Create the config directory
-mkdir -p ~/.config/pipeleek
+# Open the config file in vim
+vim ~/.config/pipeleek/pipeleek.yaml
 
-# Create the config file with your token
-cat > ~/.config/pipeleek/pipeleek.yaml << EOF
-gitlab:
-  url: http://gitlab
-  token: <your-token-from-step-3>
-EOF
-
-# Set proper permissions
-chmod 600 ~/.config/pipeleek/pipeleek.yaml
+# In vim, find the line with "token:" and replace <your-token-from-step-3> with your actual token
+# The file should look like:
+# gitlab:
+#   url: http://gitlab
+#   token: <your-token-from-step-3>
+```
 
 # Now use pipeleek to enumerate GitLab
 pipeleek gl enum                  # Enumerate users, groups, projects
