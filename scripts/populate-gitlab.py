@@ -9,10 +9,11 @@ import json
 import yaml
 import requests
 import time
+from urllib.parse import quote
 from typing import Dict, List, Any, Optional
 
 class GitLabPopulator:
-    def __init__(self, gitlab_url: str, admin_token: str):
+    def __init__(self, gitlab_url: str, admin_token: str, config_base_path: str = None):
         self.gitlab_url = gitlab_url.rstrip('/')
         self.admin_token = admin_token
         self.session = requests.Session()
@@ -20,128 +21,110 @@ class GitLabPopulator:
         self.users_map = {}  # Map username to user ID
         self.groups_map = {}  # Map group path to group ID
         self.projects_map = {}  # Map project path to project ID
+        self.user_tokens = {}  # Map "username:alias" to PAT token
         self.ci_templates = self._build_ci_templates()
+        self.config_base_path = config_base_path or os.path.dirname(os.path.abspath(__file__))
 
     def _build_ci_templates(self) -> Dict[str, str]:
-        """Build default CI templates for lab projects"""
-        return {
-            'web-app': """image: node:18
+        """Build default CI templates for lab projects (deprecated - use external files)"""
+        # Keep empty for backward compatibility but log warning if used
+        return {}
+    def _build_ci_templates(self) -> Dict[str, str]:
+        """Build default CI templates for lab projects (deprecated - use external files)"""
+        # Keep empty for backward compatibility but log warning if used
+        return {}
 
-stages:
-  - test
-  - build
-  - deploy
+    def _validate_ci_template(self, template_path: str) -> bool:
+        """Validate that a CI template file exists and is readable"""
+        full_path = os.path.join(self.config_base_path, template_path)
+        
+        if not os.path.exists(full_path):
+            # Try absolute path
+            full_path = template_path
+        
+        if not os.path.exists(full_path):
+            return False
+        
+        try:
+            with open(full_path, 'r') as f:
+                content = f.read()
+                if not content.strip():
+                    return False
+                # Basic YAML validation
+                yaml.safe_load(content)
+                return True
+        except Exception as e:
+            self.log("WARN", f"CI template validation failed for {template_path}: {e}")
+            return False
 
-cache:
-  paths:
-    - node_modules/
-
-test:
-  stage: test
-  script:
-    - npm ci
-    - npm test
-
-build:
-  stage: build
-  script:
-    - npm run build
-  artifacts:
-    paths:
-      - dist/
-
-deploy:
-  stage: deploy
-  script:
-    - echo "Deploying to $DEPLOY_ENV"
-  only:
-    - main
-""",
-            'api-service': """image: python:3.11
-
-stages:
-  - test
-  - build
-
-before_script:
-  - python -m pip install --upgrade pip
-  - pip install -r requirements.txt
-
-tests:
-  stage: test
-  script:
-    - pytest -q
-
-package:
-  stage: build
-  script:
-    - python -m pip install build
-    - python -m build
-  artifacts:
-    paths:
-      - dist/
-""",
-            'mobile-app': """image: alpine:3.19
-
-stages:
-  - build
-  - release
-
-build:
-  stage: build
-  script:
-    - echo "Building mobile app for $BUILD_ENV"
-    - mkdir -p build && echo "artifact" > build/app.apk
-  artifacts:
-    paths:
-      - build/
-
-release:
-  stage: release
-  script:
-    - echo "Signing with key: $SIGNING_KEY"
-    - echo "Release complete"
-  only:
-    - main
-""",
-            'infrastructure': """image: hashicorp/terraform:1.6
-
-stages:
-  - validate
-  - plan
-
-validate:
-  stage: validate
-  script:
-    - terraform init -backend=false
-    - terraform validate
-
-plan:
-  stage: plan
-  script:
-    - terraform init -backend=false
-    - terraform plan -var "environment=$TF_VAR_environment"
-""",
-            'security-tools': """image: alpine:3.19
-
-stages:
-  - scan
-
-scan:
-  stage: scan
-  script:
-    - echo "Running security scan"
-    - echo "Using token: ${SCANNER_TOKEN:0:6}****"
-    - echo "Webhook: $REPORT_WEBHOOK"
-""",
+    def _create_personal_access_token(self, user_id: int, username: str, token_name: str, token_alias: str, scopes: List[str] = None) -> Optional[str]:
+        """Create a personal access token for a user (requires admin)"""
+        if scopes is None:
+            # Default scopes - use only those supported in GitLab v18.x
+            # Removed: sudo, admin_mode (not available in this version)
+            scopes = ["api", "read_user", "read_repository", "write_repository"]
+        
+        # Calculate expiration date (365 days from now)
+        from datetime import datetime, timedelta
+        expires_at = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
+        
+        data = {
+            'name': token_name,
+            'scopes': scopes,
+            'expires_at': expires_at
         }
+        
+        self.log("DEBUG", f"Creating PAT '{token_name}' for user {username} (ID: {user_id}) with scopes: {scopes}")
+        self.log("DEBUG", f"Sending POST request to users/{user_id}/personal_access_tokens with data: {data}")
+        
+        result = self.api_call('POST', f'users/{user_id}/personal_access_tokens', data)
+        
+        if result:
+            self.log("DEBUG", f"API response received: {result}")
+            if 'token' in result:
+                token = result['token']
+                token_key = f"{username}:{token_alias}"
+                self.user_tokens[token_key] = token
+                self.log("OK", f"Created PAT '{token_name}' (alias: {token_alias}) for {username}, stored as {token_key}")
+                return token
+            else:
+                self.log("ERROR", f"API response missing 'token' field for PAT creation: {result}")
+                return None
+        else:
+            self.log("ERROR", f"Failed to create PAT '{token_name}' for {username} (API returned None)")
+            return None
+
+    def _load_ci_template_file(self, template_path: str) -> Optional[str]:
+        # Try relative to config base path first
+        full_path = os.path.join(self.config_base_path, template_path)
+        
+        if not os.path.exists(full_path):
+            # Try absolute path
+            full_path = template_path
+        
+        if not os.path.exists(full_path):
+            self.log("WARN", f"CI template file not found: {template_path}")
+            return None
+        
+        try:
+            with open(full_path, 'r') as f:
+                content = f.read()
+            self.log("INFO", f"Loaded CI template from {template_path}")
+            return content
+        except Exception as e:
+            self.log("WARN", f"Failed to read CI template file {template_path}: {e}")
+            return None
         
     def log(self, level: str, message: str):
         """Log message with level prefix"""
         print(f"[{level:>8}] {message}")
         
-    def api_call(self, method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Optional[Dict]:
-        """Make API call to GitLab"""
+    def api_call(self, method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None, suppress_errors: List[int] = None) -> Optional[Dict]:
+        """Make API call to GitLab
+        
+        Args:
+            suppress_errors: List of HTTP status codes to not log as errors (e.g., [404] for expected not-found)
+        """
         url = f"{self.gitlab_url}/api/v4/{endpoint}"
         try:
             if method == 'GET':
@@ -157,27 +140,63 @@ scan:
             return resp.json() if resp.text else None
         except requests.exceptions.RequestException as e:
             error_msg = str(e)
+            status_code = None
             try:
-                resp_text = e.response.text if hasattr(e, 'response') and e.response else ''
-                if resp_text:
-                    # Try to parse as JSON for better error messages
-                    try:
-                        error_json = json.loads(resp_text)
-                        if 'message' in error_json:
-                            error_msg += f" - {error_json['message']}"
-                        elif 'error' in error_json:
-                            error_msg += f" - {error_json['error']}"
-                        else:
-                            error_msg += f" - {resp_text[:200]}"
-                    except:
-                        error_msg += f" - {resp_text[:200]}"
-                # For 403, also log the request data that caused it
-                if hasattr(e, 'response') and e.response and e.response.status_code == 403:
-                    error_msg += f" (payload: {str(data)[:100]}...)" if data else ""
+                if hasattr(e, 'response') and e.response:
+                    status_code = e.response.status_code
+                    resp_text = e.response.text
+                    if resp_text:
+                        # Try to parse as JSON for better error messages
+                        try:
+                            error_json = json.loads(resp_text)
+                            if 'message' in error_json:
+                                error_msg = f"{error_json['message']}"
+                            elif 'error' in error_json:
+                                error_msg = f"{error_json['error']}"
+                            elif 'error_description' in error_json:
+                                error_msg = f"{error_json['error_description']}"
+                            else:
+                                error_msg = resp_text[:300]
+                        except:
+                            error_msg = resp_text[:300]
+                    # For 403, also log the request data that caused it
+                    if status_code == 403:
+                        error_msg += f" (payload: {str(data)[:100]}...)" if data else ""
             except:
                 pass
-            self.log("ERROR", f"API call failed: {error_msg}")
+            
+            # Check if this error should be suppressed
+            if suppress_errors and status_code in suppress_errors:
+                return None
+            
+            # Format complete error message with status code (only log if not suppressed)
+            if status_code:
+                self.log("ERROR", f"API call failed [{status_code} {method} {endpoint}]: {error_msg}")
+            else:
+                self.log("ERROR", f"API call failed [{method} {endpoint}]: {error_msg}")
             return None
+
+    def _resolve_branch(self, project_id: int, preferred_branch: Optional[str]) -> str:
+        """Resolve a valid branch for operations, falling back to project default."""
+        # Suppress 404 errors when checking branch existence (expected for empty repos)
+        if preferred_branch:
+            encoded_branch = quote(preferred_branch, safe="")
+            branch_info = self.api_call('GET', f'projects/{project_id}/repository/branches/{encoded_branch}', suppress_errors=[404])
+            if branch_info:
+                return preferred_branch
+
+        project_info = self.api_call('GET', f'projects/{project_id}')
+        default_branch = project_info.get('default_branch') if project_info else None
+        if default_branch:
+            return default_branch
+
+        for fallback in ('main', 'master'):
+            encoded_branch = quote(fallback, safe="")
+            branch_info = self.api_call('GET', f'projects/{project_id}/repository/branches/{encoded_branch}', suppress_errors=[404])
+            if branch_info:
+                return fallback
+
+        return preferred_branch or 'main'
 
     def _wait_for_import(self, project_id: int, max_attempts: int = 60) -> bool:
         """Wait for repository import to finish"""
@@ -289,18 +308,19 @@ scan:
 
     def _create_file(self, project_id: int, file_path: str, content: str, branch: str, commit_message: str) -> bool:
         """Create or update a file in the repository with retry logic"""
-        encoded_path = file_path.replace('/', '%2F')
+        resolved_branch = self._resolve_branch(project_id, branch)
+        encoded_path = quote(file_path, safe="")
         max_attempts = 3
         
         for attempt in range(max_attempts):
             try:
-                # First check if file exists
-                existing = self.api_call('GET', f'projects/{project_id}/repository/files/{encoded_path}', params={'ref': branch})
+                # First check if file exists (suppress 404 - expected if file doesn't exist yet)
+                existing = self.api_call('GET', f'projects/{project_id}/repository/files/{encoded_path}', params={'ref': resolved_branch}, suppress_errors=[404])
                 
                 if existing:
                     # File exists, update it - must include last_commit_id
                     data = {
-                        'branch': branch,
+                        'branch': resolved_branch,
                         'content': content,
                         'commit_message': commit_message,
                         'last_commit_id': existing.get('last_commit_id') or existing.get('commit_id')
@@ -312,7 +332,7 @@ scan:
                 else:
                     # File doesn't exist, create it
                     data = {
-                        'branch': branch,
+                        'branch': resolved_branch,
                         'content': content,
                         'commit_message': commit_message
                     }
@@ -342,15 +362,13 @@ scan:
             self.log("INFO", f"No CI template for project {project_path}, skipping")
             return
 
-        if not default_branch:
-            project_info = self.api_call('GET', f'projects/{project_id}')
-            default_branch = project_info.get('default_branch', 'main') if project_info else 'main'
+        resolved_branch = self._resolve_branch(project_id, default_branch)
 
         self._create_file(
             project_id=project_id,
             file_path='.gitlab-ci.yml',
             content=template,
-            branch=default_branch,
+            branch=resolved_branch,
             commit_message='Add default GitLab CI pipeline'
         )
     
@@ -378,6 +396,16 @@ scan:
             user_id = existing[0]['id']
             self.users_map[user['username']] = user_id
             self.log("OK", f"User already exists: {user['username']} (ID: {user_id})")
+            # Still process PATs even if user already exists (idempotent re-runs)
+            if 'personal_access_tokens' in user:
+                for pat_config in user['personal_access_tokens']:
+                    self._create_personal_access_token(
+                        user_id=user_id,
+                        username=user['username'],
+                        token_name=pat_config.get('name', 'automation-token'),
+                        token_alias=pat_config.get('alias', 'default'),
+                        scopes=pat_config.get('scopes')
+                    )
             return user_id
         
         data = {
@@ -398,6 +426,17 @@ scan:
             if user.get('is_admin'):
                 self.api_call('PUT', f'users/{user_id}', {'admin': True})
                 self.log("OK", f"Set {user['username']} as admin")
+            
+            # Generate PATs if configured
+            if 'personal_access_tokens' in user:
+                for pat_config in user['personal_access_tokens']:
+                    self._create_personal_access_token(
+                        user_id=user_id,
+                        username=user['username'],
+                        token_name=pat_config.get('name', 'automation-token'),
+                        token_alias=pat_config.get('alias', 'default'),
+                        scopes=pat_config.get('scopes')
+                    )
             
             return user_id
         else:
@@ -454,12 +493,34 @@ scan:
             'access_level': member.get('access_level', 30)
         }
         
-        result = self.api_call('POST', f'groups/{group_id}/members', data)
+        result = self.api_call('POST', f'groups/{group_id}/members', data, suppress_errors=[409])
         if result:
             self.log("OK", f"Added {username} to group {group_id}")
         else:
-            # Check if this was a 409 (member already exists) - that's okay on re-run
-            self.log("WARN", f"Failed to add {username} to group (may already be a member)")
+            # 409 Conflict is expected on idempotent re-runs (member already exists)
+            # Don't log a warning in this case
+            pass
+    
+    def _add_project_member(self, project_id: int, member: Dict):
+        """Add a member to a project"""
+        username = member['username']
+        if username not in self.users_map:
+            self.log("WARN", f"User {username} not found, skipping project membership")
+            return
+        
+        user_id = self.users_map[username]
+        data = {
+            'user_id': user_id,
+            'access_level': member.get('access_level', 30)
+        }
+        
+        result = self.api_call('POST', f'projects/{project_id}/members', data, suppress_errors=[409])
+        if result:
+            self.log("OK", f"Added {username} to project {project_id}")
+        else:
+            # 409 Conflict is expected on idempotent re-runs (member already exists)
+            # Don't log a warning in this case
+            pass
     
     def create_project(self, project: Dict, parent_group: Optional[str] = None) -> Optional[int]:
         """Create a project in GitLab (idempotent - checks if exists first)"""
@@ -473,20 +534,35 @@ scan:
                     self.projects_map[project['path']] = project_id
                     self.log("OK", f"Project already exists: {project['name']} (ID: {project_id})")
                     
-                    # Still add/update variables (may be new)
+                    # Still add members (may be new, expect 409 Conflict on re-runs)
+                    for member in project.get('members', []):
+                        self._add_project_member(project_id, member)
+                    
+                    # Still add/update variables (may be new, expect 404 on re-runs)
                     for var in project.get('variables', []):
                         self._add_project_variable(project_id, var)
                     
                     # Still ensure CI config file exists (may be new)
-                    ci_cd_file_content = project.get('ci_cd_file')
-                    if ci_cd_file_content:
-                        self._create_file(
-                            project_id=project_id,
-                            file_path='.gitlab-ci.yml',
-                            content=ci_cd_file_content,
-                            branch=project.get('default_branch', 'main'),
-                            commit_message='Add GitLab CI pipeline configuration'
-                        )
+                    ci_cd_template_path = project.get('ci_cd_template')
+                    
+                    if ci_cd_template_path:
+                        # Validate template exists
+                        if not self._validate_ci_template(ci_cd_template_path):
+                            self.log("ERROR", f"CI template not found or invalid: {ci_cd_template_path}")
+                        else:
+                            # Load CI from template file
+                            template_content = self._load_ci_template_file(ci_cd_template_path)
+                            if template_content:
+                                resolved_branch = self._resolve_branch(project_id, project.get('default_branch', 'main'))
+                                self._create_file(
+                                    project_id=project_id,
+                                    file_path='.gitlab-ci.yml',
+                                    content=template_content,
+                                    branch=resolved_branch,
+                                    commit_message='Add GitLab CI pipeline configuration'
+                                )
+                    elif project.get('ci_cd_enabled'):
+                        self.log("WARN", f"Project {project['name']} has ci_cd_enabled but no ci_cd_template specified")
                     
                     # Still add schedules if needed
                     for schedule in project.get('schedules', []):
@@ -527,24 +603,34 @@ scan:
             if repo_url:
                 self._import_via_git_clone(project_id, project_path_with_namespace, repo_url)
 
+            # Add members
+            for member in project.get('members', []):
+                self._add_project_member(project_id, member)
+
             # Add variables
             for var in project.get('variables', []):
                 self._add_project_variable(project_id, var)
 
-            # Create CI config file (inline or template-based)
-            ci_cd_file_content = project.get('ci_cd_file')
-            if ci_cd_file_content:
-                # Inline CI file defined in YAML
-                self._create_file(
-                    project_id=project_id,
-                    file_path='.gitlab-ci.yml',
-                    content=ci_cd_file_content,
-                    branch=project.get('default_branch', 'main'),
-                    commit_message='Add GitLab CI pipeline configuration'
-                )
-            else:
-                # Use template-based CI config (legacy)
-                self._ensure_ci_config(project_id, project['path'], project.get('default_branch'))
+            # Create CI config file (template only - no inline support)
+            ci_cd_template_path = project.get('ci_cd_template')
+            
+            if ci_cd_template_path:
+                # Validate template exists
+                if not self._validate_ci_template(ci_cd_template_path):
+                    self.log("ERROR", f"CI template not found or invalid: {ci_cd_template_path}")
+                else:
+                    # Load CI from template file
+                    template_content = self._load_ci_template_file(ci_cd_template_path)
+                    if template_content:
+                        self._create_file(
+                            project_id=project_id,
+                            file_path='.gitlab-ci.yml',
+                            content=template_content,
+                            branch=project.get('default_branch', 'main'),
+                            commit_message='Add GitLab CI pipeline configuration'
+                        )
+            elif project.get('ci_cd_enabled'):
+                self.log("WARN", f"Project {project['name']} has ci_cd_enabled but no ci_cd_template specified")
 
             # Add pipeline schedules (must be after CI file creation)
             for schedule in project.get('schedules', []):
@@ -624,8 +710,25 @@ scan:
     
     def _add_project_variable(self, project_id: int, variable: Dict):
         """Add a CI/CD variable to a project"""
-        # Masked variables must be at least 8 characters long
+        # Resolve PAT placeholders like ${USER_PAT:username:alias}
         value = variable['value']
+        
+        # Check for PAT placeholder pattern
+        import re
+        pat_pattern = r'\$\{USER_PAT:([^:]+):([^}]+)\}'
+        match = re.search(pat_pattern, value)
+        if match:
+            username = match.group(1)
+            alias = match.group(2)
+            token_key = f"{username}:{alias}"
+            
+            if token_key in self.user_tokens:
+                value = self.user_tokens[token_key]
+                self.log("INFO", f"Resolved PAT placeholder for {username}:{alias}")
+            else:
+                self.log("WARN", f"PAT not found for {username}:{alias}, using placeholder value")
+        
+        # Masked variables must be at least 8 characters long
         is_masked = variable.get('masked', False)
         
         if is_masked and len(value) < 8:
@@ -638,7 +741,23 @@ scan:
             'protected': variable.get('protected', False),
             'masked': is_masked
         }
-        
+        # Check if variable already exists (idempotent re-runs)
+        # Suppress 404 errors since they're expected when variable doesn't exist yet
+        encoded_key = quote(variable['key'], safe="")
+        existing = self.api_call('GET', f'projects/{project_id}/variables/{encoded_key}', suppress_errors=[404])
+        if existing:
+            update_data = {
+                'value': value,
+                'protected': variable.get('protected', False),
+                'masked': is_masked
+            }
+            result = self.api_call('PUT', f'projects/{project_id}/variables/{encoded_key}', update_data)
+            if result:
+                self.log("OK", f"Updated variable {variable['key']} in project {project_id}")
+            else:
+                self.log("WARN", f"Failed to update variable {variable['key']}")
+            return
+
         result = self.api_call('POST', f'projects/{project_id}/variables', data)
         if result:
             self.log("OK", f"Added variable {variable['key']} to project {project_id}")
@@ -647,18 +766,19 @@ scan:
     
     def _add_project_schedule(self, project_id: int, schedule: Dict):
         """Add a pipeline schedule to a project"""
+        resolved_ref = self._resolve_branch(project_id, schedule.get('ref', 'main'))
         data = {
             'description': schedule.get('description', 'Pipeline schedule'),
             'cron': schedule.get('cron', '0 0 * * *'),
             'cron_timezone': schedule.get('cron_timezone', 'UTC'),
-            'ref': schedule.get('ref', 'main'),
+            'ref': resolved_ref,
             'active': schedule.get('active', True)
         }
         
         # Retry logic: schedules may fail if project isn't fully initialized yet
         max_attempts = 3
         for attempt in range(max_attempts):
-            result = self.api_call('POST', f'projects/{project_id}/pipeline_schedules', data)
+            result = self.api_call('POST', f'projects/{project_id}/pipeline_schedules', data, suppress_errors=[400])
             if result:
                 self.log("OK", f"Added schedule '{schedule.get('description')}' to project {project_id}")
                 return True
@@ -667,6 +787,7 @@ scan:
                 self.log("INFO", f"Schedule creation failed for project {project_id}, retrying in 2 seconds... (attempt {attempt + 1}/{max_attempts})")
                 time.sleep(2)
             else:
+                # 400 Bad Request is expected on re-runs when schedule already exists
                 self.log("WARN", f"Failed to add schedule to project {project_id} after {max_attempts} attempts")
         
         return False
@@ -739,7 +860,13 @@ def main():
     gitlab_url = sys.argv[2] if len(sys.argv) > 2 else os.getenv('GITLAB_URL', 'http://127.0.0.1')
     admin_token = sys.argv[3] if len(sys.argv) > 3 else os.getenv('GITLAB_ADMIN_TOKEN', 'glpat-attack-lab-admin-token-2024')
     
-    populator = GitLabPopulator(gitlab_url, admin_token)
+    # Get config base path - use lab-config directory as the base
+    # This assumes scripts are in <root>/scripts and lab-config is in <root>/lab-config
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    config_base_path = os.path.join(project_root, 'lab-config')
+    
+    populator = GitLabPopulator(gitlab_url, admin_token, config_base_path)
     
     # Wait for GitLab to be ready
     if not populator.wait_for_gitlab():

@@ -36,7 +36,7 @@ echo -e "${GREEN}✓${NC} Services started"
 echo ""
 
 # Step 2: Wait for GitLab to be healthy
-echo -e "${YELLOW}[STEP 2]${NC} Waiting for GitLab to initialize (this may take 5-10 minutes on CI)..."
+echo -e "${YELLOW}[STEP 2]${NC} Waiting for GitLab to initialize (this may take 5-10 minutes)..."
 ATTEMPT=0
 while true; do
     ATTEMPT=$((ATTEMPT + 1))
@@ -224,30 +224,13 @@ else
     # Set proper permissions
     docker exec pentester chmod 600 /root/.config/pipeleek/pipeleek.yaml 2>/dev/null || true
 
-    # Update bashrc with credentials
+    # Update bashrc with credentials (no banner - shown by make pentester-shell)
     docker exec pentester bash -c "cat >> ~/.bashrc << 'BASHRC'
 
 # GitLab Lab Credentials
 export GITLAB_URL=\"http://gitlab\"
-export GITLAB_USER=\"root\"
-export GITLAB_PASSWORD=\"R00t@L4b_Adm1n_2024\"
 export PENTESTER_USER=\"pentester\"
 export PENTESTER_PASSWORD=\"SecureP3nt3st3r@2024!\"
-
-# Welcome message
-echo \"╔════════════════════════════════════════════════════╗\"
-echo \"║     GitLab Attack Lab - Pentester Container        ║\"
-echo \"╚════════════════════════════════════════════════════╝\"
-echo \"\"
-echo \"Configured credentials:\"
-echo \"  GitLab URL:      \$GITLAB_URL\"
-echo \"  Root User:       \$GITLAB_USER\"
-echo \"  Root Password:   \$GITLAB_PASSWORD\"
-echo \"  Pentester User:  \$PENTESTER_USER\"
-echo \"  Pentester Pass:  \$PENTESTER_PASSWORD\"
-echo \"\"
-echo \"Try: pipeleek gl enum\"
-echo \"\"
 BASHRC" 2>/dev/null || true
 
     echo -e "${GREEN}✓${NC} Pentester container configured with pipeleek"
@@ -276,30 +259,6 @@ else
     fi
     echo -e "${GREEN}✓ Pentester container ready${NC}"
 fi
-echo ""
-echo -e "${YELLOW}Access GitLab:${NC}"
-echo "  URL:      http://127.0.0.1"
-echo "  Username: root"
-echo "  Password: R00t@L4b_Adm1n_2024"
-echo ""
-echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Open GitLab in your browser: http://127.0.0.1"
-echo "  2. Enter the pentester shell: docker-compose exec pentester /bin/bash"
-echo "  3. Run Pipeleek commands to explore the lab"
-echo ""
-echo -e "${YELLOW}Useful commands:${NC}"
-echo "  # View services"
-echo "  docker-compose ps"
-echo ""
-echo "  # View logs"
-echo "  docker-compose logs -f gitlab"
-echo ""
-echo "  # Stop everything"
-echo "  docker-compose down"
-echo ""
-echo "  # Stop and remove all data"
-echo "  docker-compose down -v"
-echo ""
 
 # Option to enter pentester shell (only if container is running)
 if docker exec pentester true 2>/dev/null; then

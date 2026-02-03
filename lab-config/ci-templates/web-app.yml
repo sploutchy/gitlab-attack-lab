@@ -1,0 +1,38 @@
+image: node:18
+
+stages:
+  - test
+  - build
+  - deploy
+
+cache:
+  paths:
+    - node_modules/
+
+test:
+  stage: test
+  script:
+    - npm ci
+    - npm test
+  tags:
+    - docker
+
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+  tags:
+    - docker
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to $DEPLOY_ENV"
+    - echo "Registry: $REGISTRY_URL"
+  only:
+    - main
+  tags:
+    - docker

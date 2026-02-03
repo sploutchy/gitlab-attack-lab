@@ -1,0 +1,12 @@
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    - echo "Starting build pipeline..."
+    - echo "Initializing build environment"
+    - for i in {1..50}; do echo "Building component $i/50"; done
+    - echo "Build completed successfully"
+  tags:
+    - docker

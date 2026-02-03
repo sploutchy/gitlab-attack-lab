@@ -1,0 +1,21 @@
+image: hashicorp/terraform:1.6
+
+stages:
+  - validate
+  - plan
+
+validate:
+  stage: validate
+  script:
+    - terraform init -backend=false || true
+    - terraform validate || true
+  tags:
+    - docker
+
+plan:
+  stage: plan
+  script:
+    - terraform init -backend=false || true
+    - terraform plan -var "environment=$TF_VAR_environment" || true
+  tags:
+    - docker

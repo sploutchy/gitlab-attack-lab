@@ -64,3 +64,6 @@ yarn.lock
 dist/
 build/
 out/
+
+# Pentester Container
+workspace/

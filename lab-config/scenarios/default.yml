@@ -91,6 +91,7 @@ projects:
     wiki_enabled: true
     snippets_enabled: true
     ci_cd_enabled: true
+    ci_cd_template: "ci-templates/web-app.yml"
     variables:
       - key: DEPLOY_ENV
         value: production
@@ -118,6 +119,7 @@ projects:
     repo_url: "https://github.com/octocat/Spoon-Knife.git"
     issues_enabled: true
     ci_cd_enabled: true
+    ci_cd_template: "ci-templates/api-service.yml"
     variables:
       - key: DEPLOY_ENV
         value: staging
@@ -140,6 +142,7 @@ projects:
     default_branch: main
     repo_url: "https://github.com/octocat/Hello-World.git"
     ci_cd_enabled: true
+    ci_cd_template: "ci-templates/mobile-app.yml"
     variables:
       - key: BUILD_ENV
         value: "release"
@@ -158,6 +161,7 @@ projects:
     default_branch: main
     repo_url: "https://github.com/octocat/Spoon-Knife.git"
     ci_cd_enabled: true
+    ci_cd_template: "ci-templates/infrastructure.yml"
     variables:
       - key: TF_VAR_environment
         value: "lab"
@@ -180,6 +184,7 @@ projects:
     default_branch: main
     repo_url: "https://github.com/octocat/Hello-World.git"
     ci_cd_enabled: true
+    ci_cd_template: "ci-templates/security-tools.yml"
     variables:
       - key: SCANNER_TOKEN
         value: "scanner-token-secret"

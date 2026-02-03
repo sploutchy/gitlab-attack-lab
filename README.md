@@ -55,14 +55,15 @@ vim ~/.config/pipeleek/pipeleek.yaml
 ```
 
 # Now use pipeleek to enumerate GitLab
-pipeleek gl enum                  # Enumerate users, groups, projects
-pipeleek gl project-vars          # Find exposed variables
-pipeleek gl runners               # List runners
+```bash
+# Enumerate users, groups, projects
+pipeleek enum
+# Enumerate accessible runners            
+pipeleek runners               
 
 # Or use the GitLab API directly with curl
 GITLAB_TOKEN=<your-token-from-step-3>
 curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects | jq
-curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects/1/variables | jq
 ```
 
 ##  Stop the Lab
@@ -71,6 +72,26 @@ curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" http://gitlab/api/v4/projects/1/variables
 make stop               # Stop containers
 make destroy            # Stop and remove all data
 ```
+
+## 🧪 Testing
+
+### Run All Tests
+
+```bash
+make test
+```
+
+### Test Categories
+
+- **Unit Tests:** `pytest tests/test_*.py -k "not integration"`
+- **Integration Tests:** `pytest tests/test_integration.py`
+- **Scenario 1 E2E Tests:** `pytest tests/test_scenario_01_cicd_variables.py -v`
+
+The Scenario 1 E2E tests validate:
+- Developer user and project setup
+- Public/private project visibility
+- CI/CD variables and schedules
+- The complete attack path (discovering public projects → extracting PAT → accessing private repos)
 
 ## 📝 Notes
 

@@ -68,10 +68,10 @@ status:
 logs:
 	@$(DOCKER_COMPOSE) logs -f gitlab
 
-shell:
+gitlab-shell:
 	@$(DOCKER_COMPOSE) exec gitlab /bin/bash
 
-pentester-shell:
+shell:
 	@$(DOCKER_COMPOSE) exec pentester /bin/bash
 
 .DEFAULT_GOAL := help

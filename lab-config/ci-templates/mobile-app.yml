@@ -1,0 +1,27 @@
+image: alpine:3.19
+
+stages:
+  - build
+  - release
+
+build:
+  stage: build
+  script:
+    - echo "Building mobile app for $BUILD_ENV"
+    - mkdir -p build && echo "artifact" > build/app.apk
+  artifacts:
+    paths:
+      - build/
+  tags:
+    - docker
+
+release:
+  stage: release
+  script:
+    - echo "Signing with key: ${SIGNING_KEY:0:10}****"
+    - echo "Release complete"
+  when: manual
+  only:
+    - main
+  tags:
+    - docker
