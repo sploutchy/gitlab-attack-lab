@@ -111,6 +111,9 @@ pip3 install -q pyyaml requests 2>/dev/null || true
 MERGED_CONFIG="/tmp/gitlab-lab-merged.yml"
 SCENARIO_INPUTS=${SCENARIOS:-"$PROJECT_ROOT/lab-config/scenarios"}
 
+echo -e "${YELLOW}  •${NC} Installing Python dependencies..."
+pip3 install -q -r "$PROJECT_ROOT/scripts/requirements.txt" 2>&1 | grep -v "already satisfied" || true
+
 echo -e "${YELLOW}  •${NC} Merging scenario files..."
 python3 "$PROJECT_ROOT/scripts/merge-scenarios.py" \
     --base "$PROJECT_ROOT/lab-config/base.yml" \
