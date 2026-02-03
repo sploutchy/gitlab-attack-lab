@@ -261,29 +261,63 @@ class TestRunners:
         """Test that runners have contacted GitLab"""
         headers = {'PRIVATE-TOKEN': admin_token}
         
-        # Give runners time to contact
-        time.sleep(15)
+        # Give runners time to contact (up to 60 seconds with retries)
+        max_wait = 60
+        poll_interval = 5
+        elapsed = 0
         
+        def _get_contacted_at(runner_id: int) -> str | None:
+            detail = requests.get(
+                f"{gitlab_url}/api/v4/runners/{runner_id}",
+                headers=headers,
+            )
+            if detail.status_code != 200:
+                return None
+            return detail.json().get('contacted_at')
+
+        expected_runners = {r['description'] for r in structure_config.get('runners', [])}
+
+        while elapsed < max_wait:
+            response = requests.get(
+                f"{gitlab_url}/api/v4/runners/all",
+                headers=headers,
+                params={'per_page': 100}
+            )
+            
+            assert response.status_code == 200
+            runners = response.json()
+            
+            all_contacted = True
+            for expected_runner_desc in expected_runners:
+                runner_ids = [r['id'] for r in runners if r['description'] == expected_runner_desc]
+                assert runner_ids, f"Runner {expected_runner_desc} not found"
+
+                # Check contacted_at on runner details (list endpoint can be stale)
+                contacted_values = [_get_contacted_at(rid) for rid in runner_ids]
+                if not any(contacted_values):
+                    all_contacted = False
+                    break
+            
+            if all_contacted:
+                break  # All runners have contacted
+            
+            elapsed += poll_interval
+            if elapsed < max_wait:
+                time.sleep(poll_interval)
+        
+        # Final check - skip if any runner still hasn't contacted
         response = requests.get(
             f"{gitlab_url}/api/v4/runners/all",
             headers=headers,
             params={'per_page': 100}
         )
-        
-        assert response.status_code == 200
         runners = response.json()
         
-        expected_runners = {r['description'] for r in structure_config.get('runners', [])}
-        
         for expected_runner_desc in expected_runners:
-            runner = next((r for r in runners if r['description'] == expected_runner_desc), None)
-            assert runner is not None, f"Runner {expected_runner_desc} not found"
-            
-            # Check if runner has ever contacted (it might not be online right now but should have contacted)
-            contacted_at = runner.get('contacted_at')
-            if contacted_at is None:
-                # Sometimes runners need a bit more time
-                pytest.skip(f"Runner {expected_runner_desc} hasn't contacted yet (may need more time)")
+            runner_ids = [r['id'] for r in runners if r['description'] == expected_runner_desc]
+            contacted_values = [_get_contacted_at(rid) for rid in runner_ids]
+            if not any(contacted_values):
+                pytest.skip(f"Runner {expected_runner_desc} hasn't contacted yet after {max_wait}s")
 
 class TestContainers:
     """Test Docker container status"""

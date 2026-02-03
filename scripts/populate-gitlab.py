@@ -9,6 +9,7 @@ import os
 import yaml
 import time
 import re
+import warnings
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from urllib.parse import quote
@@ -21,6 +22,10 @@ class GitLabPopulator:
     def __init__(self, gitlab_url: str, admin_token: str, config_base_path: str = None):
         self.gitlab_url = gitlab_url.rstrip('/')
         self.admin_token = admin_token
+        warnings.filterwarnings(
+            "ignore",
+            message=r"The base URL in the server response differs from the user-provided base URL.*",
+        )
         self.gl = gitlab.Gitlab(self.gitlab_url, private_token=admin_token)
         self.users_map = {}  # Map username to user ID
         self.groups_map = {}  # Map group path to group ID
@@ -86,8 +91,6 @@ class GitLabPopulator:
             scopes = ["api", "read_user", "read_repository", "write_repository"]
         
         expires_at = (datetime.now() + timedelta(days=365)).strftime('%Y-%m-%d')
-        
-        self.log("DEBUG", f"Creating PAT '{token_name}' for user {username} (ID: {user_id}) with scopes: {scopes}")
         
         try:
             user = self.gl.users.get(user_id)
@@ -165,12 +168,9 @@ class GitLabPopulator:
             self.log("WARN", f"Error fetching runners: {e}")
             return []
 
-    def _find_runner_by_description(self, runners: List, description: str) -> Optional[Any]:
-        """Find runner by description"""
-        for runner in runners:
-            if runner.description == description:
-                return runner
-        return None
+    def _find_runners_by_description(self, runners: List, description: str) -> List[Any]:
+        """Find runners by description"""
+        return [runner for runner in runners if runner.description == description]
 
     def create_runner(self, runner_cfg: Dict[str, Any]) -> Optional[str]:
         """Create a runner and return its authentication token"""
@@ -210,11 +210,15 @@ class GitLabPopulator:
         
         try:
             all_runners = self._get_all_runners()
-            existing = self._find_runner_by_description(all_runners, data['description'])
+            existing_runners = self._find_runners_by_description(all_runners, data['description'])
             
-            if existing:
-                self.log("OK", f"Runner already exists: {data['description']} (ID: {existing.id})")
-                return "existing-runner-token"
+            if existing_runners:
+                for runner in existing_runners:
+                    try:
+                        self.gl.runners.get(runner.id).delete()
+                        self.log("INFO", f"Removed existing runner: {data['description']} (ID: {runner.id})")
+                    except Exception as e:
+                        self.log("WARN", f"Failed to remove runner {runner.id}: {e}")
             
             result = self.gl.user.runners.create(data)
             token = result.token

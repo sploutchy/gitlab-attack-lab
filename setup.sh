@@ -127,16 +127,16 @@ POPULATE_EXIT=$?
 echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "="
 
 # Check for errors and warnings in the output
-ERROR_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[   ERROR\]" || echo 0)
-WARN_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[    WARN\]" || echo 0)
+ERROR_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[   ERROR\]" || true)
+WARN_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[    WARN\]" || true)
 
 if [ $POPULATE_EXIT -eq 0 ]; then
-    if [ $ERROR_COUNT -eq 0 ] && [ $WARN_COUNT -eq 0 ]; then
-        echo -e "${GREEN}✓${NC} GitLab structure populated successfully"
-    elif [ $ERROR_COUNT -gt 0 ]; then
+    if [ $ERROR_COUNT -gt 0 ]; then
         echo -e "${YELLOW}⚠${NC} GitLab structure populated with ${ERROR_COUNT} errors and ${WARN_COUNT} warnings"
-    else
+    elif [ $WARN_COUNT -gt 0 ]; then
         echo -e "${YELLOW}⚠${NC} GitLab structure populated with ${WARN_COUNT} warnings"
+    else
+        echo -e "${GREEN}✓${NC} GitLab structure populated successfully"
     fi
     
     # Extract and save runner tokens to .env
