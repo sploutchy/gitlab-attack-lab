@@ -119,8 +119,12 @@ class TestProjects:
         assert response.status_code == 200
         projects = response.json()
         created_project_paths = {p['path_with_namespace'] for p in projects}
-        
-        expected_projects = {f"{p['group']}/{p['path']}" for p in structure_config['projects']}
+
+        def _project_path(cfg: dict) -> str:
+            group = cfg.get('group') or 'root'
+            return f"{group}/{cfg['path']}"
+
+        expected_projects = {_project_path(p) for p in structure_config['projects']}
         
         for expected_project in expected_projects:
             assert expected_project in created_project_paths, \
@@ -134,7 +138,7 @@ class TestProjects:
             if not project_cfg.get('repo_url'):
                 continue
             
-            project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+            project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
             
             # Get project
             response = requests.get(
@@ -171,7 +175,7 @@ class TestCICD:
             if not project_cfg.get('variables'):
                 continue
             
-            project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+            project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
             
             # Get project
             response = requests.get(
@@ -206,7 +210,7 @@ class TestCICD:
             if not project_cfg.get('ci_cd_enabled', False):
                 continue
             
-            project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+            project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
             
             # Get project
             response = requests.get(

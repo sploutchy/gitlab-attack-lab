@@ -172,8 +172,12 @@ def test_projects_created():
     print("Testing project creation...")
     client = GitLabTestClient()
     config = load_merged_config()
-    
-    expected_projects = [f"{p['group']}/{p['path']}" for p in config['projects']]
+
+    def _project_path(cfg: dict) -> str:
+        group = cfg.get('group') or 'root'
+        return f"{group}/{cfg['path']}"
+
+    expected_projects = [_project_path(p) for p in config['projects']]
     
     # Get all projects
     projects = client.get_json('projects', params={'membership': False, 'per_page': 100})
@@ -195,7 +199,7 @@ def test_repositories_imported():
         if not project_cfg.get('repo_url'):
             continue
         
-        project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+        project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
         
         # Get project
         projects = client.get_json('projects', params={'search': project_cfg['path']})
@@ -222,7 +226,7 @@ def test_ci_variables():
         if not project_cfg.get('variables'):
             continue
         
-        project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+        project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
         
         # Get project
         projects = client.get_json('projects', params={'search': project_cfg['path']})
@@ -251,7 +255,7 @@ def test_ci_configs():
         if not project_cfg.get('ci_cd_enabled', False):
             continue
         
-        project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+        project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
         
         # Get project
         projects = client.get_json('projects', params={'search': project_cfg['path']})
@@ -286,7 +290,7 @@ def test_pipeline_schedules():
         if not project_cfg.get('schedules'):
             continue
         
-        project_path = f"{project_cfg['group']}/{project_cfg['path']}"
+        project_path = f"{(project_cfg.get('group') or 'root')}/{project_cfg['path']}"
         
         # Get project
         projects = client.get_json('projects', params={'search': project_cfg['path']})

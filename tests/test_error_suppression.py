@@ -1,237 +1,245 @@
+#!/usr/bin/env python3
 """
-Tests for error suppression logic in populate-gitlab.py
+Unit tests for error handling in the refactored GitLab SDK-based populator
+Tests the SDK exception handling and idempotency features
 """
 
 import pytest
+from unittest.mock import patch, MagicMock
 import sys
 import os
-from unittest.mock import Mock, patch, MagicMock
-import requests
-
-# Add scripts directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts')))
-
-# Import the module - note the hyphen in filename
 import importlib.util
-spec = importlib.util.spec_from_file_location("populate_gitlab", "scripts/populate-gitlab.py")
+
+# Load populate-gitlab.py with hyphen in the name
+spec = importlib.util.spec_from_file_location(
+    "populate_gitlab",
+    os.path.join(os.path.dirname(__file__), '..', 'scripts', 'populate-gitlab.py')
+)
 populate_gitlab = importlib.util.module_from_spec(spec)
+sys.modules["populate_gitlab"] = populate_gitlab
 spec.loader.exec_module(populate_gitlab)
 
-GitLabPopulator = populate_gitlab.GitLabPopulator
+from gitlab.exceptions import GitlabGetError, GitlabCreateError
 
 
-class TestErrorSuppression:
-    """Test error suppression in API calls"""
+class TestSDKErrorHandling:
+    """Test error handling with python-gitlab SDK"""
     
     @pytest.fixture
     def populator(self):
-        """Create a GitLabPopulator instance"""
-        return GitLabPopulator('http://test-gitlab', 'test-token')
+        """Create a GitLabPopulator instance for testing"""
+        with patch('populate_gitlab.gitlab.Gitlab'):
+            populator = populate_gitlab.GitLabPopulator('http://localhost', 'test-token')
+            populator.users_map = {'alice': 1, 'bob': 2, 'developer': 6}
+            populator.groups_map = {'security-team': 7}
+            populator.projects_map = {'web-service': 6}
+            return populator
     
-    def test_suppress_404_on_variable_check(self, populator):
-        """Test that 404 errors are suppressed when checking if variable exists"""
-        with patch.object(populator.session, 'get') as mock_get:
-            # Simulate 404 response
-            mock_response = Mock()
-            mock_response.status_code = 404
-            mock_response.text = '{"message":"404 Not Found"}'
-            mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-            mock_get.return_value = mock_response
+    def test_add_group_member_handles_conflict(self, populator):
+        """Test that 409 Conflict (member exists) is handled silently"""
+        with patch.object(populator.gl, 'groups') as mock_groups:
+            mock_group = MagicMock()
+            mock_groups.get.return_value = mock_group
             
-            # Call should return None without logging error
-            result = populator.api_call('GET', 'projects/1/variables/TEST', suppress_errors=[404])
+            # Simulate 409 Conflict when adding member
+            mock_group.members.create.side_effect = GitlabCreateError('409 Conflict: Member already exists')
             
-            assert result is None
+            # Should not raise, just log
+            populator._add_group_member(7, {'username': 'alice', 'access_level': 30})
+            
+            # Verify it was called
+            mock_group.members.create.assert_called_once()
     
-    def test_suppress_409_on_member_add(self, populator):
-        """Test that 409 Conflict errors are suppressed when adding members"""
-        with patch.object(populator.session, 'post') as mock_post:
-            # Simulate 409 response
-            mock_response = Mock()
-            mock_response.status_code = 409
-            mock_response.text = '{"message":"Member already exists"}'
-            mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-            mock_post.return_value = mock_response
+    def test_add_project_member_handles_conflict(self, populator):
+        """Test that 409 Conflict (member exists) is handled silently"""
+        with patch.object(populator.gl, 'projects') as mock_projects:
+            mock_project = MagicMock()
+            mock_projects.get.return_value = mock_project
             
-            # Call should return None without logging error
-            result = populator.api_call('POST', 'projects/1/members', {'user_id': 1}, suppress_errors=[409])
+            # Simulate 409 Conflict when adding member
+            mock_project.members.create.side_effect = GitlabCreateError('409 Conflict: Member already exists')
             
-            assert result is None
+            # Should not raise, just log
+            populator._add_project_member(6, {'username': 'bob', 'access_level': 30})
+            
+            # Verify it was called
+            mock_project.members.create.assert_called_once()
     
-    def test_suppress_400_on_schedule_create(self, populator):
-        """Test that 400 Bad Request errors are suppressed when creating duplicate schedules"""
-        with patch.object(populator.session, 'post') as mock_post:
-            # Simulate 400 response
-            mock_response = Mock()
-            mock_response.status_code = 400
-            mock_response.text = '{"message":"Schedule already exists"}'
-            mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-            mock_post.return_value = mock_response
+    def test_add_project_schedule_handles_duplicate(self, populator):
+        """Test that duplicate schedule (400) is handled silently"""
+        with patch.object(populator, '_resolve_branch') as mock_resolve:
+            mock_resolve.return_value = 'main'
             
-            # Call should return None without logging error
-            result = populator.api_call('POST', 'projects/1/pipeline_schedules', {}, suppress_errors=[400])
-            
-            assert result is None
-    
-    def test_no_suppress_without_parameter(self, populator):
-        """Test that errors are logged when suppress_errors is not provided"""
-        with patch.object(populator.session, 'get') as mock_get:
-            with patch.object(populator, 'log') as mock_log:
-                # Simulate 404 response
-                mock_response = Mock()
-                mock_response.status_code = 404
-                mock_response.text = '{"message":"404 Not Found"}'
-                mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-                mock_get.return_value = mock_response
+            with patch.object(populator.gl, 'projects') as mock_projects:
+                mock_project = MagicMock()
+                mock_projects.get.return_value = mock_project
                 
-                # Call without suppress_errors should log error
-                result = populator.api_call('GET', 'projects/1/variables/TEST')
+                # Simulate 400 Bad Request when schedule already exists
+                mock_project.pipelineschedules.create.side_effect = GitlabCreateError('400 Bad Request: Schedule already exists')
                 
-                assert result is None
-                # Check that log was called with ERROR
-                mock_log.assert_called()
-                call_args = mock_log.call_args[0]
-                assert call_args[0] == 'ERROR'
-    
-    def test_suppress_multiple_status_codes(self, populator):
-        """Test that multiple status codes can be suppressed"""
-        with patch.object(populator.session, 'get') as mock_get:
-            # Simulate 404 response
-            mock_response = Mock()
-            mock_response.status_code = 404
-            mock_response.text = '{"message":"404 Not Found"}'
-            mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-            mock_get.return_value = mock_response
-            
-            # Should suppress both 404 and 409
-            result = populator.api_call('GET', 'test', suppress_errors=[404, 409])
-            
-            assert result is None
-    
-    def test_add_group_member_suppresses_409(self, populator):
-        """Test that _add_group_member suppresses 409 Conflict errors"""
-        populator.users_map = {'testuser': 1}
-        
-        with patch.object(populator, 'api_call') as mock_api:
-            mock_api.return_value = None  # Simulates suppressed 409
-            
-            # Should not raise or log warning
-            populator._add_group_member(1, {'username': 'testuser', 'access_level': 30})
-            
-            # Verify suppress_errors=[409] was passed
-            mock_api.assert_called_once()
-            call_args = mock_api.call_args
-            assert call_args[1]['suppress_errors'] == [409]
-    
-    def test_add_project_member_suppresses_409(self, populator):
-        """Test that _add_project_member suppresses 409 Conflict errors"""
-        populator.users_map = {'testuser': 1}
-        
-        with patch.object(populator, 'api_call') as mock_api:
-            mock_api.return_value = None  # Simulates suppressed 409
-            
-            # Should not raise or log warning
-            populator._add_project_member(1, {'username': 'testuser', 'access_level': 30})
-            
-            # Verify suppress_errors=[409] was passed
-            mock_api.assert_called_once()
-            call_args = mock_api.call_args
-            assert call_args[1]['suppress_errors'] == [409]
-    
-    def test_add_project_schedule_suppresses_400(self, populator):
-        """Test that _add_project_schedule suppresses 400 Bad Request errors"""
-        with patch.object(populator, 'api_call') as mock_api:
-            with patch.object(populator, '_resolve_branch') as mock_resolve:
-                mock_resolve.return_value = 'main'
-                mock_api.return_value = None  # Simulates suppressed 400
+                # Should not raise, just return silently
+                result = populator._add_project_schedule(
+                    6, 
+                    {'description': 'Build', 'cron': '*/2 * * * *', 'ref': 'main', 'active': True}
+                )
                 
-                # Should not raise
-                result = populator._add_project_schedule(1, {
-                    'description': 'Test schedule',
-                    'cron': '0 0 * * *'
-                })
-                
-                # Verify suppress_errors=[400] was passed
-                assert mock_api.call_count == 3  # 3 retry attempts
-                for call in mock_api.call_args_list:
-                    if 'suppress_errors' in call[1]:
-                        assert call[1]['suppress_errors'] == [400]
+                assert result is True  # Returns True even on duplicate
     
-    def test_variable_check_uses_suppress_errors(self, populator):
-        """Test that variable existence check uses suppress_errors=[404]"""
-        with patch.object(populator, 'api_call') as mock_api:
-            mock_api.side_effect = [None, {'id': 1}]  # First call (GET) returns None, second (POST) succeeds
+    def test_add_project_variable_creates_new(self, populator):
+        """Test successful variable creation"""
+        with patch.object(populator.gl, 'projects') as mock_projects:
+            mock_project = MagicMock()
+            mock_projects.get.return_value = mock_project
             
-            populator._add_project_variable(1, {
+            # Variable doesn't exist
+            mock_project.variables.get.side_effect = GitlabGetError('404 Not Found')
+            mock_project.variables.create.return_value = MagicMock()
+            
+            populator._add_project_variable(6, {
                 'key': 'TEST_VAR',
-                'value': 'test_value',
+                'value': 'test-value',
                 'protected': False,
                 'masked': False
             })
             
-            # First call should be GET with suppress_errors=[404]
-            first_call = mock_api.call_args_list[0]
-            assert first_call[0][0] == 'GET'
-            assert 'variables/' in first_call[0][1]
-            assert first_call[1]['suppress_errors'] == [404]
+            # Verify create was called
+            mock_project.variables.create.assert_called_once()
     
-    def test_branch_check_uses_suppress_errors(self, populator):
-        """Test that branch existence check uses suppress_errors=[404]"""
-        with patch.object(populator, 'api_call') as mock_api:
-            mock_api.side_effect = [None, {'default_branch': 'main'}, {'name': 'main'}]
+    def test_add_project_variable_updates_existing(self, populator):
+        """Test variable update when it already exists"""
+        with patch.object(populator.gl, 'projects') as mock_projects:
+            mock_project = MagicMock()
+            mock_projects.get.return_value = mock_project
             
-            result = populator._resolve_branch(1, 'main')
+            # Variable exists
+            mock_var = MagicMock()
+            mock_project.variables.get.return_value = mock_var
             
-            # First call should check for 'main' branch with suppress_errors=[404]
-            first_call = mock_api.call_args_list[0]
-            assert 'repository/branches/' in first_call[0][1]
-            assert first_call[1]['suppress_errors'] == [404]
+            populator._add_project_variable(6, {
+                'key': 'TEST_VAR',
+                'value': 'new-value',
+                'protected': False,
+                'masked': False
+            })
+            
+            # Verify variable was updated
+            assert mock_var.value == 'new-value'
+            mock_var.save.assert_called_once()
     
-    def test_file_check_uses_suppress_errors(self, populator):
-        """Test that file existence check uses suppress_errors=[404]"""
-        with patch.object(populator, 'api_call') as mock_api:
-            with patch.object(populator, '_resolve_branch') as mock_resolve:
-                mock_resolve.return_value = 'main'
-                mock_api.side_effect = [None, {'file_path': '.gitlab-ci.yml'}]  # GET returns None, POST succeeds
-                
-                populator._create_file(1, '.gitlab-ci.yml', 'content', 'main', 'Add CI')
-                
-                # First call should be GET with suppress_errors=[404]
-                first_call = mock_api.call_args_list[0]
-                assert first_call[0][0] == 'GET'
-                assert 'repository/files/' in first_call[0][1]
-                assert first_call[1]['suppress_errors'] == [404]
-    
-    def test_successful_api_call_returns_data(self, populator):
-        """Test that successful API calls return data even with suppress_errors"""
-        with patch.object(populator.session, 'get') as mock_get:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.text = '{"id": 1, "name": "test"}'
-            mock_response.json.return_value = {"id": 1, "name": "test"}
-            mock_get.return_value = mock_response
+    def test_create_user_idempotent(self, populator):
+        """Test that creating an existing user doesn't fail"""
+        with patch.object(populator.gl, 'users') as mock_users:
+            # User already exists
+            existing_user = MagicMock()
+            existing_user.id = 6
+            mock_users.list.return_value = [existing_user]
             
-            result = populator.api_call('GET', 'test', suppress_errors=[404])
+            result = populator.create_user({
+                'username': 'developer',
+                'email': 'dev@lab.local',
+                'password': 'password',
+                'name': 'Developer'
+            })
             
-            assert result == {"id": 1, "name": "test"}
+            # Should return existing user ID
+            assert result == 6
+            # Should not create new user
+            mock_users.create.assert_not_called()
     
-    def test_unsuppressed_error_still_logged(self, populator):
-        """Test that errors not in suppress_errors list are still logged"""
-        with patch.object(populator.session, 'get') as mock_get:
-            with patch.object(populator, 'log') as mock_log:
-                # Simulate 500 response
-                mock_response = Mock()
-                mock_response.status_code = 500
-                mock_response.text = '{"message":"Internal Server Error"}'
-                mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=mock_response)
-                mock_get.return_value = mock_response
-                
-                # Call with suppress_errors=[404] should still log 500 error
-                result = populator.api_call('GET', 'test', suppress_errors=[404])
-                
-                assert result is None
-                # Check that error was logged
-                mock_log.assert_called()
-                call_args = mock_log.call_args[0]
-                assert call_args[0] == 'ERROR'
-                assert '500' in call_args[1]
+    def test_create_group_idempotent(self, populator):
+        """Test that creating an existing group doesn't fail"""
+        with patch.object(populator.gl, 'groups') as mock_groups:
+            # Group already exists
+            existing_group = MagicMock()
+            existing_group.id = 7
+            existing_group.path = 'security-team'
+            existing_group.members.get.return_value = []
+            mock_groups.list.return_value = [existing_group]
+            
+            result = populator.create_group({
+                'name': 'Security Team',
+                'path': 'security-team',
+                'description': 'Security team',
+                'visibility': 'private',
+                'members': []
+            })
+            
+            # Should return existing group ID
+            assert result == 7
+            # Should not create new group
+            mock_groups.create.assert_not_called()
+    
+    def test_create_project_idempotent(self, populator):
+        """Test that creating an existing project doesn't fail"""
+        with patch.object(populator.gl, 'projects') as mock_projects:
+            # Project already exists
+            existing_project = MagicMock()
+            existing_project.id = 6
+            existing_project.path = 'web-service'
+            existing_project.default_branch = 'main'
+            mock_projects.list.return_value = [existing_project]
+            
+            result = populator.create_project({
+                'name': 'Web Service',
+                'path': 'web-service',
+                'description': 'Web service',
+                'visibility': 'public',
+                'members': [],
+                'variables': [],
+                'schedules': []
+            })
+            
+            # Should return existing project ID
+            assert result == 6
+            # Should not create new project
+            mock_projects.create.assert_not_called()
+
+
+class TestPATCreation:
+    """Test personal access token creation with SDK"""
+    
+    @pytest.fixture
+    def populator(self):
+        """Create a GitLabPopulator instance for testing"""
+        with patch('populate_gitlab.gitlab.Gitlab'):
+            populator = populate_gitlab.GitLabPopulator('http://localhost', 'test-token')
+            populator.users_map = {'developer': 6}
+            return populator
+    
+    def test_pat_creation_success(self, populator):
+        """Test successful PAT creation"""
+        with patch.object(populator.gl, 'users') as mock_users:
+            mock_user = MagicMock()
+            mock_users.get.return_value = mock_user
+            
+            # Mock PAT creation
+            mock_token = MagicMock()
+            mock_token.token = 'glpat-test-token-123456789'
+            mock_user.personal_access_tokens.create.return_value = mock_token
+            
+            result = populator._create_personal_access_token(
+                6, 'developer', 'automation-token', 'automation',
+                scopes=['api', 'read_user']
+            )
+            
+            assert result == 'glpat-test-token-123456789'
+            assert populator.user_tokens['developer:automation'] == 'glpat-test-token-123456789'
+    
+    def test_pat_creation_failure(self, populator):
+        """Test PAT creation failure handling"""
+        with patch.object(populator.gl, 'users') as mock_users:
+            mock_user = MagicMock()
+            mock_users.get.return_value = mock_user
+            
+            # Simulate failure
+            mock_user.personal_access_tokens.create.side_effect = Exception('API Error')
+            
+            result = populator._create_personal_access_token(
+                6, 'developer', 'automation-token', 'automation'
+            )
+            
+            assert result is None
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v'])

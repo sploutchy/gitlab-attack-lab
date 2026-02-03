@@ -73,26 +73,6 @@ make stop               # Stop containers
 make destroy            # Stop and remove all data
 ```
 
-## 🧪 Testing
-
-### Run All Tests
-
-```bash
-make test
-```
-
-### Test Categories
-
-- **Unit Tests:** `pytest tests/test_*.py -k "not integration"`
-- **Integration Tests:** `pytest tests/test_integration.py`
-- **Scenario 1 E2E Tests:** `pytest tests/test_scenario_01_cicd_variables.py -v`
-
-The Scenario 1 E2E tests validate:
-- Developer user and project setup
-- Public/private project visibility
-- CI/CD variables and schedules
-- The complete attack path (discovering public projects → extracting PAT → accessing private repos)
-
 ## 📝 Notes
 
 - Setup is idempotent (safe to re-run)

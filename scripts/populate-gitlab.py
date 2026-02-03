@@ -96,7 +96,7 @@ class GitLabPopulator:
                 'scopes': scopes,
                 'expires_at': expires_at
             }
-            result = user.personalaccesstokens.create(token_data)
+            result = user.personal_access_tokens.create(token_data)
             
             token = result.token
             token_key = f"{username}:{token_alias}"
@@ -290,7 +290,6 @@ class GitLabPopulator:
         """Wait for GitLab to be ready"""
         for attempt in range(max_attempts):
             try:
-                self.gl.auth()
                 version = self.gl.version()
                 self.log("OK", f"GitLab is ready (version: {version})")
                 return True
