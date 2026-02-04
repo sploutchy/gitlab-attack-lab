@@ -1,0 +1,276 @@
+{
+  "$schema": "https://aka.ms/codepilot/schema",
+  "projectDescription": "GitLab Attack Lab - A containerized GitLab pentesting lab for learning and practicing CI/CD security vulnerabilities",
+  "projectGoals": [
+    "Provide a security research and pentesting lab for GitLab CI/CD",
+    "Enable learning of CI/CD pipeline security vulnerabilities",
+    "Automate setup and configuration of GitLab instances",
+    "Support scenario-based testing and validation"
+  ],
+  "projectType": "security-research-lab",
+  "architecture": {
+    "type": "containerized-monolith",
+    "description": "Docker Compose-based lab with GitLab CE, runners, and pentester container",
+    "components": {
+      "gitlab": {
+        "description": "GitLab CE instance running on Docker",
+        "type": "container-service",
+        "technologies": ["Docker", "GitLab CE", "PostgreSQL", "Redis", "Gitaly"]
+      },
+      "runners": {
+        "description": "GitLab CI/CD runners for executing pipelines",
+        "type": "container-service",
+        "technologies": ["GitLab Runner", "Docker"]
+      },
+      "pentester": {
+        "description": "Dedicated pentester container with security tools",
+        "type": "container-service",
+        "technologies": ["Python", "pipeleek", "curl", "jq"]
+      },
+      "configuration-system": {
+        "description": "YAML-based configuration and scenario management",
+        "type": "data-driven",
+        "technologies": ["YAML", "Python scripts"]
+      }
+    }
+  },
+  "technicalStack": {
+    "languages": ["bash", "python", "yaml"],
+    "frameworks": ["Docker", "Docker Compose", "GitLab CI/CD"],
+    "libraries": ["python-gitlab", "PyYAML", "requests"],
+    "tools": ["Make", "pytest", "pipeleek"],
+    "infrastructure": ["Docker", "Docker Compose"]
+  },
+  "codebaseStructure": {
+    "root": "/workspaces/gitlab-attack-lab",
+    "directories": {
+      "scripts": {
+        "description": "Python automation scripts for setup and lab population",
+        "purpose": "GitLab instance configuration, YAML merging, validation",
+        "keyFiles": [
+          "populate-gitlab.py - Main GitLab populator using python-gitlab SDK",
+          "merge-scenarios.py - Merges base and scenario YAML configurations",
+          "validate-ci-templates.py - Validates CI/CD template files"
+        ]
+      },
+      "lab-config": {
+        "description": "Configuration and scenario definitions",
+        "purpose": "Define lab structure, users, groups, projects, and CI/CD templates",
+        "subdirectories": {
+          "ci-templates": "External CI/CD pipeline YAML templates for projects",
+          "scenarios": "Scenario-specific lab configurations (default, scenario-01, etc.)"
+        },
+        "keyFiles": [
+          "base.yml - Base lab configuration (root user, pentester user)",
+          "scenarios/default.yml - Default scenario configuration",
+          "scenarios/scenario-01-cicd-variables-exposure.yml - CI/CD variables exposure scenario"
+        ]
+      },
+      "tests": {
+        "description": "Test suite for lab setup and configuration validation",
+        "purpose": "Integration tests, static analysis, scenario validation",
+        "keyFiles": [
+          "test_integration.py - Complete setup and component validation",
+          "test_ci_templates.py - CI/CD template validation",
+          "test_scenario_01_cicd_variables.py - Scenario-specific tests",
+          "test_static.py - Static analysis and linting",
+          "conftest.py - pytest configuration and fixtures"
+        ]
+      },
+      "pentester": {
+        "description": "Pentester container configuration and tools",
+        "purpose": "Security testing tools and configurations",
+        "subdirectories": {
+          "config": "Tool configurations (pipeleek, rules)",
+          "workspace": "Working directory for pentester activities"
+        }
+      },
+      "test-data": {
+        "description": "Example CI/CD pipeline configurations for testing",
+        "purpose": "Reference implementations of vulnerable and secure pipelines",
+        "keyFiles": [
+          "web-app-vulnerable.yml - Example vulnerable pipeline",
+          "api-service-secrets.yml - Pipeline with exposed secrets",
+          "docker-images.yml - Docker image build pipeline",
+          "infrastructure-as-code.yml - IaC deployment pipeline"
+        ]
+      },
+      "docs": {
+        "description": "Documentation and guides",
+        "purpose": "CI/CD template system documentation",
+        "keyFiles": [
+          "CI_TEMPLATES.md - Guide for creating and using CI/CD templates"
+        ]
+      }
+    }
+  },
+  "keyWorkflows": [
+    {
+      "name": "Complete Lab Setup",
+      "command": "make setup",
+      "description": "One-command setup: starts containers, initializes GitLab, creates users/projects, registers runners",
+      "duration": "5-15 minutes (first run), 2-5 minutes (subsequent)",
+      "files": ["setup.sh", "docker-compose.yml", ".env", "scripts/populate-gitlab.py", "scripts/merge-scenarios.py"]
+    },
+    {
+      "name": "Access Pentester Container",
+      "command": "make pentester-shell",
+      "description": "Enter pentester container for security testing and enumeration",
+      "files": ["Makefile", "pentester/Dockerfile", "pentester/config/pipeleek/pipeleek.yaml"]
+    },
+    {
+      "name": "Merge Scenario Configurations",
+      "command": "make merge-scenarios",
+      "description": "Merge base configuration with scenario overrides into single YAML",
+      "files": ["scripts/merge-scenarios.py", "lab-config/base.yml", "lab-config/scenarios/"]
+    },
+    {
+      "name": "Validate Scenarios",
+      "command": "make validate-scenarios",
+      "description": "Validate scenario configurations for duplicates and reference integrity",
+      "files": ["scripts/merge-scenarios.py", "lab-config/scenarios/"]
+    },
+    {
+      "name": "Run Integration Tests",
+      "command": "pytest tests/test_integration.py -v",
+      "description": "Validate complete lab setup, component availability, and configuration",
+      "files": ["tests/test_integration.py", "tests/conftest.py"]
+    }
+  ],
+  "importantConcepts": {
+    "CI/CD_Template_System": {
+      "description": "External file-based CI/CD template system to avoid YAML escaping issues",
+      "location": "lab-config/ci-templates/",
+      "reasoning": "Complex bash scripts with special characters cause YAML parsing errors when embedded inline; external templates improve maintainability, reusability, and validation",
+      "references": ["docs/CI_TEMPLATES.md"]
+    },
+    "Scenario_System": {
+      "description": "Modular scenario configurations that extend base lab configuration",
+      "location": "lab-config/scenarios/",
+      "files": ["default.yml", "scenario-01-cicd-variables-exposure.yml"],
+      "mergeProcess": "scripts/merge-scenarios.py merges base.yml with scenario overrides"
+    },
+    "Lab_Populator": {
+      "description": "Python automation using python-gitlab SDK to configure GitLab from YAML",
+      "location": "scripts/populate-gitlab.py",
+      "capabilities": ["Create users and groups", "Create projects with CI/CD pipelines", "Set up runners", "Create personal access tokens"]
+    },
+    "Docker_Compose_Infrastructure": {
+      "description": "Multi-container setup with GitLab, runners, and auxiliary services",
+      "containers": ["gitlab-attack-lab (GitLab CE)", "docker-runner", "shell-runner", "mailhog", "pentester"],
+      "networking": "lab-network (custom bridge network)"
+    }
+  },
+  "developmentGuidelines": {
+    "setup": [
+      "Ensure Docker and Docker Compose are installed",
+      "Copy .env.example to .env and customize if needed",
+      "Run 'make setup' for complete one-command initialization",
+      "Access GitLab at http://127.0.0.1 with credentials in README.md"
+    ],
+    "configuration_changes": [
+      "Modify YAML files in lab-config/ directory",
+      "Create new scenarios in lab-config/scenarios/",
+      "Create new CI/CD templates in lab-config/ci-templates/",
+      "Run 'make merge-scenarios' to validate and merge configurations",
+      "Run 'make validate-scenarios' before deploying"
+    ],
+    "testing": [
+      "Run pytest tests/test_integration.py for complete setup validation",
+      "Run pytest tests/test_static.py for code analysis",
+      "Run pytest tests/test_ci_templates.py for template validation",
+      "Use conftest.py fixtures for common test setup"
+    ],
+    "pipeline_testing": [
+      "Use test-data/pipelines/ for example configurations",
+      "Create projects in GitLab with ci-templates/",
+      "Test pipelines against runners (docker-runner, shell-runner)",
+      "Validate secret exposure scenarios"
+    ],
+    "pentesting": [
+      "Use 'make pentester-shell' to access pentesting environment",
+      "Configure pipeleek at ~/.config/pipeleek/pipeleek.yaml",
+      "Use GitLab API directly with personal access tokens",
+      "Reference test_scenario_01_cicd_variables.py for exploitation examples"
+    ]
+  },
+  "filesAndPatterns": {
+    "configuration_files": ["*.yml", "*.yaml", ".env", "*.json"],
+    "automation_scripts": ["scripts/*.py", "setup.sh", "Makefile"],
+    "test_files": ["tests/test_*.py", "tests/conftest.py"],
+    "documentation": ["*.md", "docs/"]
+  },
+  "commonTasks": [
+    {
+      "task": "Add a new CI/CD scenario",
+      "steps": [
+        "Create scenario YAML in lab-config/scenarios/",
+        "Create CI/CD templates in lab-config/ci-templates/",
+        "Add groups, projects, users to scenario file",
+        "Run 'make merge-scenarios' to validate",
+        "Add test in tests/test_scenario_*.py"
+      ]
+    },
+    {
+      "task": "Create a vulnerable CI/CD pipeline",
+      "steps": [
+        "Create template in lab-config/ci-templates/",
+        "Include sensitive data exposure (API keys, tokens, credentials)",
+        "Reference in project definition in scenarios/",
+        "Document vulnerability in docs/CI_TEMPLATES.md"
+      ]
+    },
+    {
+      "task": "Debug GitLab configuration",
+      "steps": [
+        "Run 'make logs' to view GitLab container logs",
+        "Use 'make shell' to access GitLab container directly",
+        "Check configuration with 'docker-compose exec gitlab-attack-lab gitlab-rails console'",
+        "Review .env file for token and password settings"
+      ]
+    },
+    {
+      "task": "Test pentester enumeration",
+      "steps": [
+        "Run 'make setup' to initialize lab",
+        "Run 'make pentester-shell' to access pentester container",
+        "Configure pipeleek with admin token from .env",
+        "Run 'pipeleek enum' or 'pipeleek runners'",
+        "Review test_integration.py for API examples"
+      ]
+    }
+  ],
+  "dependencies": {
+    "system": ["Docker", "Docker Compose", "bash", "python3"],
+    "python": [
+      "python-gitlab - GitLab API SDK",
+      "PyYAML - YAML parsing and manipulation",
+      "requests - HTTP client library",
+      "pytest - Testing framework"
+    ],
+    "tools": [
+      "pipeleek - GitLab enumeration tool",
+      "curl - HTTP client",
+      "jq - JSON processor"
+    ]
+  },
+  "relatedResources": {
+    "documentation": [
+      "README.md - Quick start and commands",
+      "docs/CI_TEMPLATES.md - CI/CD template system guide",
+      "LICENSE - Project licensing"
+    ],
+    "external_references": [
+      "https://docs.gitlab.com/ee/ci/ - GitLab CI/CD documentation",
+      "https://python-gitlab.readthedocs.io/ - python-gitlab SDK docs",
+      "https://docs.gitlab.com/ee/security/ - GitLab security guides"
+    ]
+  },
+  "copilotHints": {
+    "when_modifying_yaml": "Remember that CI/CD templates use external files to avoid YAML escaping issues. Don't embed complex pipelines inline.",
+    "when_adding_features": "Follow the scenario pattern: extend base.yml with scenario-specific overrides",
+    "when_writing_tests": "Use conftest.py fixtures and GitLabTestClient for API interactions",
+    "when_working_with_containers": "Verify health checks before assuming services are ready. Check docker-compose logs for startup issues.",
+    "when_handling_tokens": "Tokens are generated during setup.sh and stored in .env. Use GITLAB_ADMIN_TOKEN for API operations."
+  }
+}

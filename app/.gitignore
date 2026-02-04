@@ -1,0 +1,14 @@
+/vendor/
+/node_modules/
+/.env
+/.env.local
+/.env.*.local
+/public/storage
+/storage/logs/*
+/bootstrap/cache/*
+/.vscode/
+/.idea/
+.DS_Store
+*.log
+*.sqlite
+*.sqlite3

@@ -1,4 +1,4 @@
-.PHONY: help setup start stop restart destroy status logs shell pentester-shell merge-scenarios validate-scenarios
+.PHONY: help setup start stop restart destroy status logs shell pentester-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs
 
 DOCKER_COMPOSE := docker-compose
 
@@ -19,6 +19,11 @@ help:
 	@echo "  make destroy            - Stop and remove all data (volumes)"
 	@echo "  make shell              - Enter GitLab container"
 	@echo "  make pentester-shell    - Enter pentester container"
+	@echo "  make lab-web-shell      - Enter lab web app container"
+	@echo ""
+	@echo "Web App:"
+	@echo "  make lab-web-start      - Start only the lab web app"
+	@echo "  make lab-web-logs       - Follow lab web app logs"
 	@echo ""
 	@echo "Information:"
 	@echo "  make status             - Show container status"
@@ -73,5 +78,14 @@ gitlab-shell:
 
 shell:
 	@$(DOCKER_COMPOSE) exec pentester /bin/bash
+
+lab-web-shell:
+	@$(DOCKER_COMPOSE) exec lab-web /bin/bash
+
+lab-web-start:
+	@$(DOCKER_COMPOSE) up -d --build lab-web
+
+lab-web-logs:
+	@$(DOCKER_COMPOSE) logs -f lab-web
 
 .DEFAULT_GOAL := help

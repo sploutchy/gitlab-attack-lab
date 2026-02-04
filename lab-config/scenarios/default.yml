@@ -186,11 +186,7 @@ projects:
     ci_cd_enabled: true
     ci_cd_template: "ci-templates/security-tools.yml"
     variables:
-      - key: SCANNER_TOKEN
-        value: "scanner-token-secret"
-        protected: true
-        masked: true
-      - key: REPORT_WEBHOOK
-        value: "https://security.lab.local/webhook"
+      - key: INTRO_FLAG
+        value: 'flag{welcome_9f933f5d2a300d6b}'
         protected: false
         masked: false

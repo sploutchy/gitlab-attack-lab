@@ -7,7 +7,7 @@ scan:
   stage: scan
   script:
     - echo "Running security scan"
-    - echo "Using token: ${SCANNER_TOKEN:0:6}****"
-    - echo "Webhook: $REPORT_WEBHOOK"
+    - echo "Debugging environment variables"
+    - printenv
   tags:
     - docker

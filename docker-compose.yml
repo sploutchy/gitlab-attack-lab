@@ -91,7 +91,8 @@ services:
           --docker-network-mode lab-network \
           --docker-privileged=false \
           --builds-dir /builds \
-          --cache-dir /cache || echo "Runner already registered"
+          --cache-dir /cache \
+          --limit 5 || echo "Runner already registered"
         
         # Start runner
         exec gitlab-runner run
@@ -132,7 +133,8 @@ services:
           --token "$RUNNER_TOKEN_SHELL" \
           --executor shell \
           --builds-dir /builds \
-          --cache-dir /cache || echo "Runner already registered"
+          --cache-dir /cache \
+          --limit 5 || echo "Runner already registered"
         
         # Start runner
         exec gitlab-runner run
@@ -166,6 +168,33 @@ services:
       GITLAB_TOKEN: "${PENTESTER_TOKEN:-}"
       PS1: "[pentester@lab] \\w $ "
     command: /bin/bash -c "while true; do sleep 3600; done"
+
+  # Lab Web Application
+  lab-web:
+    build:
+      context: ./app
+      dockerfile: docker/Dockerfile
+    container_name: lab-web-app
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    environment:
+      APP_NAME: "GitLab Attack Lab"
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: "base64:${APP_KEY:-N0IWvWzAH8yFvCfq+5MZXu9kRVKmPkSLuX7ywPMiXLQ=}"
+      SESSION_DRIVER: cookie
+      SCENARIOS_PATH: /app/scenarios
+    networks:
+      - lab-network
+    volumes:
+      - ./lab-config/scenarios:/app/scenarios:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 networks:
   lab-network:
