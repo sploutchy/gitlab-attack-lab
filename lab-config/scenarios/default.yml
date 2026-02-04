@@ -54,6 +54,11 @@ groups:
       - username: bob
         access_level: 30  # Developer
 
+  - name: root
+    path: root
+    description: "Root group for lab scenarios"
+    visibility: public
+
 runners:
   # Instance-wide runner (available to all projects)
   - description: shared-docker-runner
@@ -107,6 +112,21 @@ projects:
         masked: false
       - key: REGISTRY_URL
         value: "registry.lab.local:5000"
+        protected: false
+        masked: false
+
+  - name: web-service
+    path: web-service
+    group: root
+    description: "Web service with exposed CI/CD token"
+    visibility: public
+    default_branch: main
+    repo_url: "https://github.com/octocat/Hello-World.git"
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/web-service.yml"
+    variables:
+      - key: PROVISIONER_TOKEN
+        value: 'glpat-xyz1234567890abc'
         protected: false
         masked: false
       
@@ -189,4 +209,45 @@ projects:
       - key: INTRO_FLAG
         value: 'flag{welcome_9f933f5d2a300d6b}'
         protected: false
+        masked: false
+
+  - name: infrastructure-provisioner
+    path: infrastructure-provisioner
+    group: root
+    description: "Infrastructure provisioning (Owner access required for flags)"
+    visibility: private
+    default_branch: main
+    repo_url: "https://gitlab.com/gitlab-examples/php.git"
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/infrastructure-provisioner.yml"
+    members:
+      - username: developer
+        access_level: 50
+    variables:
+      - key: FLAG_LEVEL1
+        value: 'flag{cicd_glpat_leak_9f933f5d2a30}'
+        protected: true
+        masked: false
+      - key: DB_PASSWORD
+        value: 'p@ssw0rd_infra_2024'
+        protected: true
+        masked: true
+      - key: API_SECRET
+        value: 'secret_api_key_xyz'
+        protected: true
+        masked: true
+
+  - name: infrastructure-config
+    path: infrastructure-config
+    group: root
+    description: "Infrastructure configuration with secrets in artifacts"
+    visibility: private
+    default_branch: main
+    repo_url: "https://gitlab.com/gitlab-examples/wayne-enterprises/wayne-financial/customer-web-portal.git"
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/infrastructure.yml"
+    variables:
+      - key: FLAG
+        value: 'flag{artifact_env_leak_7d3e2c1a9b5f}'
+        protected: true
         masked: false

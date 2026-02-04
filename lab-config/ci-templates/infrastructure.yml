@@ -1,21 +1,52 @@
-image: hashicorp/terraform:1.6
-
 stages:
-  - validate
-  - plan
+  - setup
+  - build
+  - artifacts
 
-validate:
-  stage: validate
-  script:
-    - terraform init -backend=false || true
-    - terraform validate || true
-  tags:
-    - docker
+variables:
+  ENV_FILE: ".env"
 
-plan:
-  stage: plan
+setup:
+  stage: setup
+  image: alpine:latest
   script:
-    - terraform init -backend=false || true
-    - terraform plan -var "environment=$TF_VAR_environment" || true
-  tags:
-    - docker
+    - echo "Setting up infrastructure environment..."
+    - |
+      cat > .env << 'EOF'
+      ENVIRONMENT=production
+      REGION=us-east-1
+      CLUSTER_ID=prod-k8s-01
+      DB_HOST=database.internal
+      DB_USER=admin
+      DB_PASSWORD=p@ssw0rd_db_secure_2024
+      API_KEY=sk-prod-abc123xyz789
+      FLAG_LEVEL2=flag{artifact_env_leak_7d3e2c1a9b5f}
+      SECRET_FLAG=flag{dotenv_extracted_b2e8f1c5a3d9}
+      SLACK_TOKEN=xoxb-slack-token-xyz
+      GITHUB_TOKEN=ghp_github-pat-xyz
+      EOF
+    - echo "Environment file created"
+    - cat .env
+  artifacts:
+    paths:
+      - .env
+    expire_in: 30 days
+
+build:
+  stage: build
+  image: ubuntu:latest
+  script:
+    - echo "Building infrastructure configuration..."
+    - apt-get update > /dev/null 2>&1
+    - apt-get install -y curl > /dev/null 2>&1
+    - echo "Dumping all environment variables..."
+    - env | sort > env_dump.txt
+    - echo "Adding .env contents to dump..."
+    - cat .env >> env_dump.txt
+    - echo "Build complete"
+  artifacts:
+    paths:
+      - env_dump.txt
+    expire_in: 30 days
+  dependencies:
+    - setup
