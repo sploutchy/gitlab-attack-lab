@@ -28,7 +28,10 @@
             <a href="/scenarios/{{ $scenario['slug'] }}" class="card bg-base-200 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">
                 <div class="card-body">
                     <div class="flex items-start justify-between mb-2">
-                        <h2 class="card-title text-lg">{{ $scenario['title'] }}</h2>
+                        <div>
+                            <div class="text-xs font-semibold text-primary uppercase tracking-wide">Scenario {{ $scenario['order'] }}</div>
+                            <h2 class="card-title text-lg">{{ $scenario['title'] }}</h2>
+                        </div>
                         <span class="badge @if($scenario['difficulty'] === 'beginner') badge-success @elseif($scenario['difficulty'] === 'intermediate') badge-warning @else badge-error @endif">
                             {{ ucfirst($scenario['difficulty']) }}
                         </span>

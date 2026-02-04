@@ -2,7 +2,7 @@
 id: scenario-01-cicd-leaks
 title: CI/CD Leaks - Token Discovery & Exploitation
 difficulty: intermediate
-order: 2
+order: 3
 flags:
   - name: GLPAT Token
     pattern: "^glpat-[A-Za-z0-9_-]{20}$"
