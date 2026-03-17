@@ -31,8 +31,8 @@ projects:
       protected: false
       masked: false
     schedules:
-      - description: "QA tests every 2 minutes"
-        cron: "*/2 * * * *"
+      - description: "QA tests every 30 minutes"
+        cron: "*/30 * * * *"
         cron_timezone: "UTC"
         ref: "main"
         active: true

@@ -1,0 +1,15 @@
+stages:
+  - validate
+
+validate:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "Validating testing configuration..."
+    - echo "Verifying variables"
+    - env | grep TESTING_TOKEN > /tmp/flags.txt || echo "TESTING_TOKEN not found" 
+  artifacts:
+    paths:
+      - /tmp/flags.txt
+    expire_in: 1 week
+  allow_failure: true

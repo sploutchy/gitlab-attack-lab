@@ -1,0 +1,64 @@
+scenario:
+  name: "Scenario 2: CI/CD Leaks - Token Discovery & Lateral Movement"
+  description: "Discover GitLab Personal Access Tokens in CI/CD artifacts and use them for lateral movement to access private repositories."
+  difficulty: "intermediate"
+  tags: ["ci-cd", "token-leaks", "lateral-movement", "artifacts", "secrets-exposure"]
+
+users:
+  - username: test-manager
+    email: test-manager@lab.local
+    password: T3stMgr_Qv7!Lab42
+    is_admin: false
+    state: active
+    personal_access_tokens:
+      - name: "test-manager-pat"
+        alias: "test-manager-pat"
+
+projects:
+  - name: web-service
+    path: web-service
+    visibility: public
+    description: "My web service testing repository with CI/CD pipelines"
+    members:
+      - username: test-manager
+        access_level: 50
+    issues_enabled: true
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/web-service.yml"
+    schedules:
+      - description: "Private data validation every 30 minutes"
+        cron: "*/30 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    variables:
+      - key: GL_PAT
+        value: "${USER_PAT:test-manager:test-manager-pat}"
+        protected: false
+        masked: false
+
+  - name: private-test-data
+    path: private-test-data
+    visibility: private
+    description: "Private repository with restricted infrastructure data"
+    members:
+      - username: test-manager
+        access_level: 50
+    issues_enabled: true
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/private-test-data.yml"
+    schedules:
+      - description: "Private data validation every 30 minutes"
+        cron: "*/30 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    variables:
+      - key: UNUSED_FLAG_TOKEN
+        value: "flag{unused_43f5e00b0cec678f}"
+        protected: false
+        masked: false
+      - key: TESTING_TOKEN
+        value: "flag{lateral_movement_589fd9ddb5b21182}"
+        protected: true
+        masked: false

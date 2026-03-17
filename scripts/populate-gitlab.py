@@ -99,7 +99,18 @@ class GitLabPopulator:
                 'scopes': scopes,
                 'expires_at': expires_at
             }
-            result = user.personal_access_tokens.create(token_data)
+            try:
+                result = user.personal_access_tokens.create(token_data)
+            except Exception as e:
+                # PAT names must be unique per user. On reruns, generate a unique
+                # name so we can still mint a token and resolve USER_PAT placeholders.
+                if 'has already been taken' in str(e).lower() or 'name has already been taken' in str(e).lower():
+                    unique_name = f"{token_name}-{int(time.time())}"
+                    token_data['name'] = unique_name
+                    self.log("WARN", f"PAT name '{token_name}' already exists for {username}; retrying as '{unique_name}'")
+                    result = user.personal_access_tokens.create(token_data)
+                else:
+                    raise
             
             token = result.token
             token_key = f"{username}:{token_alias}"
@@ -620,7 +631,23 @@ class GitLabPopulator:
                     value = self.user_tokens[token_key]
                     self.log("INFO", f"Resolved PAT placeholder for {username}:{alias}")
                 else:
-                    self.log("WARN", f"PAT not found for {username}:{alias}, using placeholder value")
+                    self.log("WARN", f"PAT not found for {username}:{alias}; attempting to create one now")
+                    user_id = self.users_map.get(username)
+                    if user_id:
+                        created_token = self._create_personal_access_token(
+                            user_id=user_id,
+                            username=username,
+                            token_name=alias,
+                            token_alias=alias,
+                            scopes=None
+                        )
+                        if created_token:
+                            value = created_token
+                            self.log("INFO", f"Resolved PAT placeholder after on-demand token creation for {username}:{alias}")
+                        else:
+                            self.log("WARN", f"On-demand PAT creation failed for {username}:{alias}, using placeholder value")
+                    else:
+                        self.log("WARN", f"User '{username}' not found in users map, using placeholder value")
             
             # Validate masked variables
             is_masked = variable.get('masked', False)
@@ -689,6 +716,17 @@ class GitLabPopulator:
             self.log("WARN", f"Failed to add schedule to project {project_id}: {e}")
             return False
 
+    def _trigger_pipeline(self, project_id: int, ref: str = 'main') -> bool:
+        """Trigger a pipeline on a project"""
+        try:
+            project = self.gl.projects.get(project_id)
+            pipeline = project.pipelines.create({'ref': ref})
+            self.log("OK", f"Triggered pipeline on {ref} for project {project_id} (Pipeline ID: {pipeline.id})")
+            return True
+        except Exception as e:
+            self.log("WARN", f"Failed to trigger pipeline on project {project_id}: {e}")
+            return False
+
     def populate_from_yaml(self, yaml_file: str) -> bool:
         """Load YAML file and populate GitLab"""
         try:
@@ -700,13 +738,24 @@ class GitLabPopulator:
         
         self.log("INFO", f"Loaded configuration: {config.get('lab', {}).get('name', 'Unknown')}")
         
-        # Test if admin token works
-        try:
-            self.gl.auth()
-            version = self.gl.version()
-            self.log("OK", f"Connected to GitLab v{version}")
-        except Exception as e:
-            self.log("ERROR", f"Admin token is invalid or GitLab API is not responding: {e}")
+        # Test if admin token works (retry to tolerate transient GitLab 502 during startup)
+        auth_ok = False
+        last_error = None
+        for attempt in range(1, 16):
+            try:
+                self.gl.auth()
+                version = self.gl.version()
+                self.log("OK", f"Connected to GitLab v{version}")
+                auth_ok = True
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < 16:
+                    self.log("INFO", f"Admin auth not ready yet (attempt {attempt}/15), retrying...")
+                    time.sleep(2)
+
+        if not auth_ok:
+            self.log("ERROR", f"Admin token is invalid or GitLab API is not responding: {last_error}")
             self.log("ERROR", "Please ensure GITLAB_ADMIN_TOKEN in .env is valid")
             return False
         
@@ -735,15 +784,44 @@ class GitLabPopulator:
         self.log("INFO", "Creating groups...")
         for group in config.get('groups', []):
             self.create_group(group)
+
+        # Create runners in two phases to minimize pending-first-pipeline races:
+        # 1) instance/group runners before projects
+        # 2) project-scoped runners after projects exist
+        all_runners_cfg = config.get('runners', [])
+        pre_project_runners = [r for r in all_runners_cfg if r.get('scope', 'instance') != 'project']
+        post_project_runners = [r for r in all_runners_cfg if r.get('scope', 'instance') == 'project']
+
+        runner_tokens = {}
+        if pre_project_runners:
+            runner_tokens.update(self.create_runners(pre_project_runners))
         
         # Create projects
         self.log("INFO", "Creating projects...")
         for project in config.get('projects', []):
             group = project.get('group')
             self.create_project(project, group)
-        
-        # Create runners and return tokens
-        runner_tokens = self.create_runners(config.get('runners', []))
+
+        # Create project-scoped runners now that projects exist and return tokens
+        if post_project_runners:
+            runner_tokens.update(self.create_runners(post_project_runners))
+
+        # Trigger initial pipelines for all CI-enabled projects with a CI template
+        for project in config.get('projects', []):
+            if not project.get('ci_cd_enabled'):
+                continue
+            if not project.get('ci_cd_template'):
+                continue
+
+            project_path = project.get('path')
+            project_id = self.projects_map.get(project_path)
+            if not project_id:
+                continue
+
+            ref = project.get('default_branch', 'main')
+            self.log("INFO", f"Triggering initial pipeline for {project_path} on {ref}...")
+            self._trigger_pipeline(project_id, ref=ref)
+            time.sleep(1)
         
         self.log("OK", "Population complete!")
         return runner_tokens

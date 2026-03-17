@@ -114,22 +114,7 @@ projects:
         value: "registry.lab.local:5000"
         protected: false
         masked: false
-
-  - name: web-service
-    path: web-service
-    group: root
-    description: "Web service with exposed CI/CD token"
-    visibility: public
-    default_branch: main
-    repo_url: "https://github.com/octocat/Hello-World.git"
-    ci_cd_enabled: true
-    ci_cd_template: "ci-templates/web-service.yml"
-    variables:
-      - key: PROVISIONER_TOKEN
-        value: 'glpat-xyz1234567890abc'
-        protected: false
-        masked: false
-      
+    
   - name: api-service
     path: api-service
     group: development-team

@@ -1,33 +1,10 @@
 stages:
-  - setup
   - build
   - test
   - deploy
 
 variables:
   CI_DEBUG_TRACE: "false"
-  # GLPAT exposed via unprotected variable - INTENTIONAL LEAK FOR LAB
-  PROVISIONER_TOKEN: 'glpat-xyz1234567890abc'
-
-# Job that exposes the token in logs
-setup:
-  stage: setup
-  image: alpine:latest
-  script:
-    - echo "========================================="
-    - echo "Initializing provisioning service..."
-    - echo "========================================="
-    - echo "Checking provisioning token access..."
-    - echo "Token prefix: ${PROVISIONER_TOKEN:0:6}..."
-    - echo "Full access token (DEBUG): $PROVISIONER_TOKEN"
-    - echo "Access level on infrastructure-provisioner: Owner (50)"
-    - echo "========================================="
-    - echo "Environment:"
-    - env | grep PROVISIONER
-  artifacts:
-    paths:
-      - .env.example
-    expire_in: 1 week
 
 build:
   stage: build
@@ -37,12 +14,11 @@ build:
     - apt-get update > /dev/null 2>&1
     - apt-get install -y curl jq > /dev/null 2>&1
     - echo "Build complete"
-    - env | grep -i token > build_env.txt || echo "no tokens" > build_env.txt
+    - env | grep -i GL_PAT > build_env.txt || echo "no tokens" > build_env.txt
   artifacts:
     paths:
       - build_env.txt
     expire_in: 1 week
-
 test:
   stage: test
   image: alpine:latest

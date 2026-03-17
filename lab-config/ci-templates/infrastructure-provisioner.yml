@@ -1,30 +1,50 @@
 stages:
-  - validate
-  - deploy
+  - setup
+  - build
+  - artifacts
 
 variables:
-  DEPLOY_ENV: "production"
+  ENV_FILE: ".env"
 
-validate:
-  stage: validate
+setup:
+  stage: setup
   image: alpine:latest
   script:
-    - echo "Validating infrastructure configuration..."
-    - echo "Environment variables (partial dump):"
-    - env | head -20
-    - echo "Checking for flags..."
-    - env | grep FLAG || echo "No flags found"
+    - echo "Preparing provisioner environment..."
+    - |
+      cat > .env << 'EOF'
+      ENVIRONMENT=production
+      REGION=us-east-1
+      CLUSTER_ID=prod-k8s-01
+      DB_HOST=database.internal
+      DB_USER=admin
+      DB_PASSWORD=p@ssw0rd_db_secure_2024
+      API_KEY=sk-prod-abc123xyz789
+      FLAG_LEVEL2=flag{artifact_env_leak_7d3e2c1a9b5f}
+      SECRET_FLAG=flag{dotenv_extracted_b2e8f1c5a3d9}
+      SLACK_TOKEN=xoxb-slack-token-xyz
+      GITHUB_TOKEN=ghp_github-pat-xyz
+      EOF
+    - echo "Provisioner environment file created"
+    - cat .env
   artifacts:
     paths:
-      - /tmp/flags.txt
-    expire_in: 1 week
-  allow_failure: true
+      - .env
+    expire_in: 30 days
 
-deploy:
-  stage: deploy
-  image: alpine:latest
+build:
+  stage: build
+  image: ubuntu:latest
   script:
-    - echo "Deploying infrastructure..."
-    - echo "Using DEVELOPER_PAT for authentication"
-    - echo "Full token: $DEVELOPER_PAT"
-    - echo "Infrastructure deployment complete"
+    - echo "Building infrastructure provisioning bundle..."
+    - apt-get update > /dev/null 2>&1
+    - apt-get install -y curl > /dev/null 2>&1
+    - env | sort > env_dump.txt
+    - cat .env >> env_dump.txt
+    - echo "Provisioning bundle complete"
+  artifacts:
+    paths:
+      - env_dump.txt
+    expire_in: 30 days
+  dependencies:
+    - setup

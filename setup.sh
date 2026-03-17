@@ -71,7 +71,7 @@ sleep 2
 # Create the admin token with all scopes
 echo -e "  Creating admin token..."
 TOKEN_OUTPUT=$(docker exec gitlab-attack-lab gitlab-rails runner \
-    "user = User.find_by(username: 'root'); token = user.personal_access_tokens.create!(scopes: [:api, :read_user, :read_api, :read_repository, :write_repository, :admin_mode, :sudo], name: 'lab-admin-token', expires_at: 1.year.from_now); puts token.token" 2>&1)
+    "user = User.find_by(username: 'root'); token_name = 'lab-admin-token-' + Time.now.to_i.to_s; token = user.personal_access_tokens.create!(scopes: [:api, :read_user, :read_api, :read_repository, :write_repository, :admin_mode, :sudo], name: token_name, expires_at: 1.year.from_now); puts token.token" 2>&1)
 
 # Extract the token (last line of output)
 NEW_TOKEN=$(echo "$TOKEN_OUTPUT" | grep "glpat-" | tail -1)
@@ -87,6 +87,23 @@ if [ -n "$NEW_TOKEN" ]; then
     
     # Update the environment variable for this script
     GITLAB_ADMIN_TOKEN="$NEW_TOKEN"
+
+    # Ensure the token is usable before population (GitLab can briefly return 502 after startup)
+    echo -e "  Verifying admin token with GitLab API..."
+    TOKEN_READY=0
+    for i in $(seq 1 30); do
+        USER_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" "http://127.0.0.1/api/v4/user" 2>/dev/null || echo "000")
+        if [ "$USER_HTTP_CODE" = "200" ]; then
+            TOKEN_READY=1
+            echo -e "${GREEN}  ✓${NC} Admin token verified"
+            break
+        fi
+        sleep 2
+    done
+
+    if [ "$TOKEN_READY" -ne 1 ]; then
+        echo -e "${YELLOW}  ⚠${NC}  Admin token not yet accepted by API, population step will retry auth"
+    fi
 else
     echo -e "${YELLOW}  ⚠${NC}  Could not create new token, using existing token from .env"
 fi
@@ -121,10 +138,12 @@ python3 "$PROJECT_ROOT/scripts/merge-scenarios.py" \
     --output "$MERGED_CONFIG" 2>&1
 
 # Run the populator and capture runner tokens
+set +e
 POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$MERGED_CONFIG" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN" 2>&1)
 POPULATE_EXIT=$?
+set -e
 
-echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "="
+echo "$POPULATE_OUTPUT" | grep -v "^===" | grep -v "=" || true
 
 # Check for errors and warnings in the output
 ERROR_COUNT=$(echo "$POPULATE_OUTPUT" | grep -c "^\[   ERROR\]" || true)
