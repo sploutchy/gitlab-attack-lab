@@ -2,7 +2,7 @@
 id: scenario-00-getting-started
 title: Getting Started with GitLab Attack Lab
 difficulty: beginner
-order: 1
+order: 0
 flags:
   - name: Welcome Flag
     pattern: "^flag\\{welcome_[a-z0-9]{16}\\}$"
@@ -23,19 +23,16 @@ hints:
 ---
 
 ## Objective
+
 Learn how to use the GitLab Attack Lab and submit your first flag.
 
 ## Background
+
 GitLab Attack Lab is an interactive learning platform for understanding GitLab CI/CD security misconfiguration.
 
-## Goal
+## Scenario Description
 
-**Access the GitLab Instance**
-   - Open your browser and navigate the GitLab login mask http://127.0.0.1
-   - Login with credential `pentester` and `SecureP3nt3st3r@2024!`
-
-**Explore the Projects**
-   - Look at the projects your user has access to
-
-**Find And Submit Your First Flag**
-   - The first flag follows this pattern: `flag{welcome_XXXXXXXXXXXXXXXX}`
+1. Open your browser and navigate the GitLab login mask http://127.0.0.1
+2. Login with credential `pentester` and `SecureP3nt3st3r@2024!`
+3. Look at the projects your user has access to e.g. is a member of
+4. The first flag follows this pattern: `flag{welcome_XXXXXXXXXXXXXXXX}`

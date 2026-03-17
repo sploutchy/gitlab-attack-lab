@@ -1,6 +1,6 @@
 scenario:
   name: "Scenario 1: Public CI/CD"
-  description: "Three public projects with CI/CD pipelines demonstrating exposure of secrets in unprotected variables"
+  description: "Single project with CI/CD pipelines exposing variables in logs and artifacts."
   difficulty: "beginner"
   tags: ["public-projects", "ci-cd", "secrets-exposure"]
 
@@ -22,9 +22,14 @@ projects:
     visibility: public
     members:
       - username: developer
-        access_level: 30  # Developer
+        access_level: 30 
     issues_enabled: true
     ci_cd_enabled: true
+    variables:
+    - key: XKEY
+      value: "flag{cicd_vars_d78d62cc4824fa8f}"
+      protected: false
+      masked: false
     schedules:
       - description: "QA tests every 2 minutes"
         cron: "*/2 * * * *"

@@ -24,6 +24,17 @@
                 🏴‍☠️ GitLab Attack Lab
             </a>
         </div>
+        <div class="flex-none">
+            <a
+                href="https://compasssecurity.github.io/pipeleek/introduction/getting_started/"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-ghost"
+            >
+            <img src="https://raw.githubusercontent.com/CompassSecurity/pipeleek/refs/heads/main/docs/pipeleek-anim.svg" alt="Pipeleek Logo" class="w-5 h-5 mr-2">
+                Pipleek Docs
+            </a>
+        </div>
     </div>
 
     <main class="min-h-screen">

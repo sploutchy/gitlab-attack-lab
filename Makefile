@@ -1,4 +1,4 @@
-.PHONY: help setup start stop restart destroy status logs shell pentester-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs
+.PHONY: help setup start stop restart destroy status logs shell gitlab-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs lab-web-restart lab-web-rebuild lab-web-watch
 
 DOCKER_COMPOSE := docker-compose
 
@@ -8,7 +8,7 @@ help:
 	@echo "╚════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "Setup:"
-	@echo "  make setup              - Complete setup (ONE COMMAND!)"
+	@echo "  make setup               - Start the full attack lab"
 	@echo "  make merge-scenarios     - Merge scenario configs into a single YAML"
 	@echo "  make validate-scenarios  - Validate scenarios for duplicates and references"
 	@echo ""
@@ -17,12 +17,15 @@ help:
 	@echo "  make stop               - Stop services"
 	@echo "  make restart            - Restart services"
 	@echo "  make destroy            - Stop and remove all data (volumes)"
-	@echo "  make shell              - Enter GitLab container"
-	@echo "  make pentester-shell    - Enter pentester container"
+	@echo "  make gitlab-shell       - Enter GitLab container"
+	@echo "  make shell              - Enter pentester container"
 	@echo "  make lab-web-shell      - Enter lab web app container"
 	@echo ""
 	@echo "Web App:"
 	@echo "  make lab-web-start      - Start only the lab web app"
+	@echo "  make lab-web-restart    - Restart the lab web app"
+	@echo "  make lab-web-rebuild    - Rebuild and restart the lab web app"
+	@echo "  make lab-web-watch      - Watch sources and auto-update the lab web app"
 	@echo "  make lab-web-logs       - Follow lab web app logs"
 	@echo ""
 	@echo "Information:"
@@ -64,7 +67,17 @@ restart:
 
 destroy:
 	@echo "[*] Destroying lab (containers + volumes)..."
-	$(DOCKER_COMPOSE) down -v
+	@RUNNER_CONTAINERS=$$(docker ps -aq --filter "network=lab-network" --filter "name=runner-"); \
+	if [ -n "$$RUNNER_CONTAINERS" ]; then \
+		echo "[*] Removing runner job/service containers on lab-network..."; \
+		docker rm -f $$RUNNER_CONTAINERS >/dev/null; \
+	fi
+	$(DOCKER_COMPOSE) down --remove-orphans -v
+	@RUNNER_VOLUMES=$$(docker volume ls -q --filter "name=runner-"); \
+	if [ -n "$$RUNNER_VOLUMES" ]; then \
+		echo "[*] Removing runner cache volumes..."; \
+		docker volume rm $$RUNNER_VOLUMES >/dev/null 2>&1 || true; \
+	fi
 	@echo "[+] Lab destroyed!"
 
 status:
@@ -84,6 +97,20 @@ lab-web-shell:
 
 lab-web-start:
 	@$(DOCKER_COMPOSE) up -d --build lab-web
+
+lab-web-restart:
+	@echo "[*] Restarting lab web app..."
+	@$(DOCKER_COMPOSE) restart lab-web
+	@echo "[+] Lab web app restarted!"
+
+lab-web-rebuild:
+	@echo "[*] Rebuilding and restarting lab web app..."
+	@$(DOCKER_COMPOSE) up -d --build --force-recreate lab-web
+	@echo "[+] Lab web app rebuilt and restarted!"
+
+lab-web-watch:
+	@echo "[*] Watching lab web app sources for changes (Ctrl+C to stop)..."
+	@$(DOCKER_COMPOSE) watch lab-web
 
 lab-web-logs:
 	@$(DOCKER_COMPOSE) logs -f lab-web

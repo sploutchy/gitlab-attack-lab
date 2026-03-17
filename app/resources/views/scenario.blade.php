@@ -67,6 +67,15 @@
                         </span>
                     </h2>
 
+                    @if(count($foundFlags) >= count($scenario['flags']))
+                    <!-- All flags found — completion banner -->
+                    <div class="alert alert-success mt-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="font-semibold">All flags found! Scenario complete 🎉</span>
+                    </div>
+                    @else
                     <div x-data="flagSubmissionForm()" 
                          x-init="scenarioSlug = '{{ $scenario['slug'] }}'"
                          class="mt-6 space-y-4">
@@ -111,6 +120,7 @@
                             <span x-show="loading" class="loading loading-spinner loading-sm"></span>
                         </button>
                     </div>
+                    @endif
 
                     <!-- Found Flags List -->
                     @if(count($foundFlags) > 0)

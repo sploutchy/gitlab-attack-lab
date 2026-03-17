@@ -17,6 +17,7 @@ test:
     - for i in {1..25}; do echo "[COVERAGE] Analyzing coverage $((i * 4))%"; done
     - echo "[COVERAGE] Final Coverage 89.4%"
     - echo "[INFO] Uploading test artifacts..."
+    - echo "[DEBUG] Artifacts uploaded to GitLab with HTTP header x-key $XKEY"
     - for i in {1..20}; do echo "[UPLOAD] $i/20 test reports uploaded"; done
     - echo "QA Automation Pipeline Completed Successfully"
   tags:

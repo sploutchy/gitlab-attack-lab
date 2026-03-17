@@ -22,9 +22,18 @@ class ScenarioController extends Controller
     public function index(): View
     {
         $scenarios = $this->scenarioService->getAllScenarios();
-        
+
+        $completedScenarios = [];
+        foreach ($scenarios as $scenario) {
+            $slug = $scenario['slug'];
+            $foundFlags = session("scenario.{$slug}.found_flags", []);
+            $totalFlags = count($scenario['flags'] ?? []);
+            $completedScenarios[$slug] = $totalFlags > 0 && count($foundFlags) >= $totalFlags;
+        }
+
         return view('index', [
             'scenarios' => $scenarios,
+            'completedScenarios' => $completedScenarios,
         ]);
     }
 

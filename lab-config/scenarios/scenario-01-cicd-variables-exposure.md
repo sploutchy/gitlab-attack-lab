@@ -1,59 +1,80 @@
 ---
 id: scenario-01-cicd-variables-exposure
-title: CI/CD Variables Exposure
+title: Sensitive Variable Exposure And Pipeleek Introduction
 difficulty: beginner
-order: 2
+order: 1
 flags:
   - name: Variables Leak Flag
     pattern: "^flag\\{cicd_vars_[a-z0-9]{16}\\}$"
 solution:
   title: Solution
   content: |
-    1. Start the pentester container: `make lab-pentester-shell`
-    2. Export your GitLab token: `export GITLAB_TOKEN="<your-pat>"`
-    3. Use pipeleek to scan for variable leaks: `pipeleek --gitlab-url http://gitlab:80 scan`
-    4. Review the web-app or api-service project pipelines
-    5. Look for jobs that echo environment variables or use verbose logging
-    6. Extract the flag from the pipeline job logs
-    7. Submit the flag: `flag{cicd_vars_XXXXXXXXXXXXXXXX}`
+    1. Start the pentester container: `make shell`
+    2. Configure the Pipeleek Personal Acces Token`
+    3. Ensure to create the custom scan rule
+    4. Use pipeleek to scan for variable leaks: `pipeleek scan`
+    5. Submit the flag: `flag{cicd_vars_XXXXXXXXXXXXXXXX}`
 hints:
-  - title: Basic Hint
-    content: Look for jobs that echo environment variables or use `printenv` in the pipeline logs.
-  - title: Intermediate Hint
-    content: Check the **web-app** or **api-service** project pipelines for scripts that print secrets.
-  - title: Advanced Hint
-    content: Search for masked variables that are accidentally logged through debugging flags or verbose output.
+  - title: Hint
+    content: Configure Pipeleek according to the description, then run `pipeleek scan`.
 ---
 
-# CI/CD Variables Exposure
-
 ## Objective
-Identify how CI/CD variables can be exposed in pipeline logs and artifacts and extract the flag.
+
+Identify how secrets can be exposed in CI/CD pipeline logs, get know Pipleek and its configuration and extract the flag.
 
 ## Background
-Many teams store secrets as CI/CD variables. Misconfigured jobs or verbose logging can leak these values.
 
-## Steps to Complete This Scenario
+Many teams store secrets as [CI/CD variables](https://docs.gitlab.com/ci/variables/). Misconfigured jobs or verbose logging can leak these values if access control and masking is not properly set up.
 
-**Access the GitLab Instance**
+## Scenario Description
+
+### Prepare the Tooling
+
+From the lab root, run: `make shell` This opens a shell in the pentester container.
+
+Then  create a new  Personal Access Token in the GitLab UI: 
+1. Go to http://localhost > User menu > Settings > Access Tokens
+2. Set the Scopes: api, read_api, read_repository
+3. Then add the created token to under the `token` key in the Pipeleek config file `~/.config/pipeleek/pipeleek.yaml`
+
+```bash
+# edit the config file
+vim ~/.config/pipeleek/pipeleek.yaml
+
+# Modify the content and add the PAT you've generated before
+gitlab:
+  url: http://gitlab
+  token: glpat-3qXyv3VI_nWJ8uin5ucy6m86MQp1OjIH.01.[example]
+
+# Test its working
+pipeleek enum
+```
+
+### Find the Flag
+
+[Pipeleek](https://github.com/CompassSecurity/pipeleek) is a tool which can be used to search for secrets in CI/CD pipeline logs in an automated way. We can use it to find the flag hidden in some job output log.
 
 
-**Start the Pentester Container**
-- From the lab root, run: `make lab-pentester-shell`
-- This opens a shell in the pentester container.
+> Pipleek does not detect the flag format as secret by default, therefore we need to add a custom role to our Pipeleek secret rules configuration.
 
-**Configure Your Pentester PAT**
-- In the pentester shell, export your token so tooling can authenticate:
-  - `export GITLAB_TOKEN="<your-personal-access-token>"`
-- Verify access with a quick API call:
-  - `curl -s "$GITLAB_URL/api/v4/projects" | head -n 5`
+Add the new custom rule to the `rules.yml` file
+```bash
+# run the tool first so it will populate the rules.yml intially
+pipeleek scan
 
-**Explore Manually and with Pipeleek**
-- Start by reviewing CI/CD pipelines in the GitLab UI.
-- Then use pipeleek inside the pentester container to enumerate and detect variable leaks.
+# Add the new rule to the now existing file
+cat <<'EOF' >> rules.yml
+  - pattern:
+      name: Lab Flag
+      regex: 'flag\{[^}]+\}'
+      confidence: high
+EOF
+```
 
-**Extract the Flag**
-- Find the flag in the logs. It follows: `flag{cicd_vars_XXXXXXXXXXXXXXXX}`
+At this point we can start our first scan with the most basic configuration available.
+```bash
+pipeleek scan
+```
 
-## Summary
-By completing this scenario, you'll learn how CI/CD logging practices can expose sensitive variables.
+Review the output, find the flag and submit it.

@@ -195,6 +195,34 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    develop:
+      watch:
+        # Sync PHP sources instantly (no restart needed with built-in server)
+        - action: sync
+          path: ./app/app
+          target: /app/app
+        - action: sync
+          path: ./app/config
+          target: /app/config
+        - action: sync
+          path: ./app/routes
+          target: /app/routes
+        - action: sync
+          path: ./app/resources/views
+          target: /app/resources/views
+        # Rebuild image when asset sources or dependencies change
+        - action: rebuild
+          path: ./app/resources/css
+        - action: rebuild
+          path: ./app/resources/js
+        - action: rebuild
+          path: ./app/composer.json
+        - action: rebuild
+          path: ./app/composer.lock
+        - action: rebuild
+          path: ./app/package.json
+        - action: rebuild
+          path: ./app/docker/Dockerfile
 
 networks:
   lab-network:
