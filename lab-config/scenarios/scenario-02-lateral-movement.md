@@ -6,7 +6,7 @@ order: 2
 flags:
   - name: Private Test Data Pipline
     pattern: "^flag\\{unused_[a-z0-9]{16}\\}$"
-  - name: APrivate Test Data Unused Variable
+  - name: Private Test Data Unused Variable
     pattern: "^flag\\{lateral_movement_[a-z0-9]{16}\\}$"
 
 solution:
