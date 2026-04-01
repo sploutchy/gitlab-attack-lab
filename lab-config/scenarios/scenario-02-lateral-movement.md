@@ -49,11 +49,4 @@ In possession of a new PAT you can again enumerate your newly discovered access 
 
 ### Phase 3: Artifact Extraction (Environment Files)
 
-Find the flags
-
-**Access Levels:**
-- 10 = Guest
-- 20 = Reporter
-- 30 = Developer ← Can see pipelines and artifacts
-- 40 = Maintainer
-- 50 = Owner ← Full project access including variables
+Find all the flags

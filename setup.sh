@@ -14,6 +14,9 @@ else
     exit 1
 fi
 
+GITLAB_HOST_URL="${GITLAB_HOST_URL:-http://127.0.0.1:8081}"
+GITLAB_HOST_URL="${GITLAB_HOST_URL%/}"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,18 +34,23 @@ echo ""
 # Step 1: Start Docker Compose services
 echo -e "${YELLOW}[STEP 1]${NC} Starting Docker Compose services..."
 cd "$PROJECT_ROOT"
-docker-compose up -d > /dev/null 2>&1 || true
+if ! docker-compose up -d >/tmp/gitlab-setup-compose-up.log 2>&1; then
+    echo -e "${RED}✗${NC} Failed to start Docker Compose services"
+    tail -n 50 /tmp/gitlab-setup-compose-up.log || true
+    exit 1
+fi
 echo -e "${GREEN}✓${NC} Services started"
 echo ""
 
 # Step 2: Wait for GitLab to be healthy
 echo -e "${YELLOW}[STEP 2]${NC} Waiting for GitLab to initialize (this may take 5-10 minutes)..."
 ATTEMPT=0
+MAX_WAIT_SECONDS=1200
 while true; do
     ATTEMPT=$((ATTEMPT + 1))
     
     # Try to access GitLab API - don't require container to be healthy, just accessible
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1/api/v4/version" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$GITLAB_HOST_URL/api/v4/version" 2>/dev/null || echo "000")
     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ]; then
         echo -e "${GREEN}✓${NC} GitLab is ready (took ${ATTEMPT}s)"
         break
@@ -50,8 +58,25 @@ while true; do
     
     # Show progress every 30 seconds
     if [ $((ATTEMPT % 30)) -eq 0 ]; then
-        STATUS=$(docker-compose ps gitlab 2>/dev/null | tail -1 | awk '{print $NF}' || echo "unknown")
+        STATUS=$(docker ps --filter "name=^/gitlab-attack-lab$" --format "{{.Status}}" | head -n 1)
+        if [ -z "$STATUS" ]; then
+            STATUS="not running"
+        fi
         echo -e "  Waiting... (${ATTEMPT}s elapsed) - Container: $STATUS"
+
+        GITLAB_STATE_ERROR=$(docker inspect gitlab-attack-lab --format '{{.State.Error}}' 2>/dev/null || true)
+        if [ -n "$GITLAB_STATE_ERROR" ]; then
+            echo -e "${RED}✗${NC} GitLab container failed to start"
+            echo -e "${YELLOW}Docker error:${NC} $GITLAB_STATE_ERROR"
+            exit 1
+        fi
+    fi
+
+    if [ "$ATTEMPT" -ge "$MAX_WAIT_SECONDS" ]; then
+        echo -e "${RED}✗${NC} GitLab did not become reachable within ${MAX_WAIT_SECONDS}s"
+        echo -e "${YELLOW}Recent GitLab logs:${NC}"
+        docker-compose logs --tail=80 gitlab || true
+        exit 1
     fi
     sleep 1
 done
@@ -92,7 +117,7 @@ if [ -n "$NEW_TOKEN" ]; then
     echo -e "  Verifying admin token with GitLab API..."
     TOKEN_READY=0
     for i in $(seq 1 30); do
-        USER_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" "http://127.0.0.1/api/v4/user" 2>/dev/null || echo "000")
+        USER_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" "$GITLAB_HOST_URL/api/v4/user" 2>/dev/null || echo "000")
         if [ "$USER_HTTP_CODE" = "200" ]; then
             TOKEN_READY=1
             echo -e "${GREEN}  ✓${NC} Admin token verified"
@@ -106,6 +131,33 @@ if [ -n "$NEW_TOKEN" ]; then
     fi
 else
     echo -e "${YELLOW}  ⚠${NC}  Could not create new token, using existing token from .env"
+fi
+
+echo ""
+
+# Step 3.5: Disable Auto DevOps globally
+echo -e "${YELLOW}[STEP 3.5]${NC} Disabling GitLab Auto DevOps globally..."
+AUTO_DEVOPS_DISABLED=0
+for i in $(seq 1 20); do
+    HTTP_CODE=$(curl -s -o /tmp/gitlab-settings-response.json -w "%{http_code}" \
+        -X PUT \
+        -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
+        --data-urlencode "auto_devops_enabled=false" \
+        "$GITLAB_HOST_URL/api/v4/application/settings" 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        if grep -q '"auto_devops_enabled":false' /tmp/gitlab-settings-response.json; then
+            AUTO_DEVOPS_DISABLED=1
+            echo -e "${GREEN}  ✓${NC} Auto DevOps disabled globally"
+            break
+        fi
+    fi
+
+    sleep 2
+done
+
+if [ "$AUTO_DEVOPS_DISABLED" -ne 1 ]; then
+    echo -e "${YELLOW}  ⚠${NC}  Could not confirm Auto DevOps global disablement"
 fi
 
 echo ""
@@ -139,7 +191,7 @@ python3 "$PROJECT_ROOT/scripts/merge-scenarios.py" \
 
 # Run the populator and capture runner tokens
 set +e
-POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$MERGED_CONFIG" "http://127.0.0.1" "$GITLAB_ADMIN_TOKEN" 2>&1)
+POPULATE_OUTPUT=$(python3 "$PROJECT_ROOT/scripts/populate-gitlab.py" "$MERGED_CONFIG" "$GITLAB_HOST_URL" "$GITLAB_ADMIN_TOKEN" 2>&1)
 POPULATE_EXIT=$?
 set -e
 
@@ -193,7 +245,7 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         RUNNERS_FOUND=0
         while [ $RUNNER_WAIT -lt 60 ]; do
             REGISTERED=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
-                "http://127.0.0.1/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' 2>/dev/null || echo "0")
+                "$GITLAB_HOST_URL/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' 2>/dev/null || echo "0")
             
             # Clean up the variable to remove any whitespace/newlines
             REGISTERED=$(echo "$REGISTERED" | tr -d '\n' | tail -1)

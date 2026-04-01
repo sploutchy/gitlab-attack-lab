@@ -20,7 +20,7 @@ This will:
 
 ### 2. Access GitLab Web UI
 
-Open your browser: `http://127.0.0.1`
+Open your browser: `http://127.0.0.1:8081`
 
 Login as:
 - **Username:** `pentester`

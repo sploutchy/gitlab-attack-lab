@@ -498,6 +498,17 @@ class GitLabPopulator:
                     elif project.get('ci_cd_enabled'):
                         self.log("WARN", f"Project {project['name']} has ci_cd_enabled but no ci_cd_template specified")
                     
+                    # Still add extra repo files if specified
+                    resolved_branch = self._resolve_branch(project_id, project.get('default_branch', 'main'))
+                    for repo_file in project.get('repo_files', []):
+                        self._create_file(
+                            project_id=project_id,
+                            file_path=repo_file['path'],
+                            content=repo_file['content'],
+                            branch=resolved_branch,
+                            commit_message=f"Add {repo_file['path']}"
+                        )
+
                     # Still add schedules if needed
                     for schedule in project.get('schedules', []):
                         self._add_project_schedule(project_id, schedule)
@@ -563,6 +574,17 @@ class GitLabPopulator:
             elif project.get('ci_cd_enabled'):
                 self.log("WARN", f"Project {project['name']} has ci_cd_enabled but no ci_cd_template specified")
             
+            # Add extra repo files if specified
+            resolved_branch = self._resolve_branch(project_id, project.get('default_branch', 'main'))
+            for repo_file in project.get('repo_files', []):
+                self._create_file(
+                    project_id=project_id,
+                    file_path=repo_file['path'],
+                    content=repo_file['content'],
+                    branch=resolved_branch,
+                    commit_message=f"Add {repo_file['path']}"
+                )
+
             # Add schedules
             for schedule in project.get('schedules', []):
                 self._add_project_schedule(project_id, schedule)

@@ -1,0 +1,19 @@
+stages:
+  - renovate
+
+renovate:
+  stage: renovate
+  image: renovate/renovate:37-full
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: "${CI_SERVER_URL}/api/v4"
+    RENOVATE_TOKEN: "${RENOVATE_TOKEN}"
+    RENOVATE_AUTODISCOVER: "true"
+    LOG_LEVEL: debug
+  script:
+    - renovate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+  tags:
+    - docker
