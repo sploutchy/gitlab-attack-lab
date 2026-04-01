@@ -1,4 +1,4 @@
-.PHONY: help setup start stop restart destroy status logs shell gitlab-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs lab-web-restart lab-web-rebuild lab-web-watch
+.PHONY: help setup test-ci test-deployment start stop restart destroy status logs shell gitlab-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs lab-web-restart lab-web-rebuild lab-web-watch
 
 DOCKER_COMPOSE := docker-compose
 
@@ -9,6 +9,8 @@ help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup               - Start the full attack lab"
+	@echo "  make test-ci             - Run offline CI/unit-style tests"
+	@echo "  make test-deployment     - Validate deployed lab state and scenarios"
 	@echo "  make merge-scenarios     - Merge scenario configs into a single YAML"
 	@echo "  make validate-scenarios  - Validate scenarios for duplicates and references"
 	@echo ""
@@ -41,6 +43,13 @@ setup:
 		echo "[+] .env file created!"; \
 	fi
 	@bash setup.sh
+	@$(MAKE) --no-print-directory test-deployment
+
+test-ci:
+	@python3 -m pytest tests/ci -m ci -v --tb=short
+
+test-deployment:
+	@python3 -m pytest tests/deployment -m deployment -v --tb=short
 
 merge-scenarios:
 	@python3 scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --output /tmp/gitlab-lab-merged.yml

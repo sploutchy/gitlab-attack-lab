@@ -1,8 +1,7 @@
 name: GitLab Attack Lab - Static Validation
 
-# Note: Full integration tests require local execution due to GitLab's resource requirements.
-# This workflow runs static validation only (syntax checks, YAML validation, etc.)
-# For full integration tests, run locally: make setup && pytest tests/
+# Note: Deployment tests require a local Dockerized GitLab lab and are intentionally
+# excluded from GitHub-hosted CI. This workflow runs the offline CI-safe suite only.
 
 on:
   push:
@@ -27,20 +26,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install requests pyyaml pytest
+          pip install -r tests/requirements.txt
       
-      - name: Run static validation tests
+      - name: Run CI-safe test suite
         run: |
-          echo "Running static validation (syntax, imports, config files)..."
-          python -m pytest tests/test_static.py -v --tb=short
-      
-      - name: Validate bash scripts
-        run: |
-          echo "Validating bash script syntax..."
-          bash -n setup.sh
-      
-      - name: Validate YAML files
-        run: |
-          echo "Validating YAML configuration files..."
-          python -c "import yaml; yaml.safe_load(open('docker-compose.yml')); yaml.safe_load(open('lab-config/base.yml')); yaml.safe_load(open('lab-config/scenarios/default.yml'))"
-          echo "All YAML files are valid!"
+          echo "Running offline CI-safe tests..."
+          python -m pytest tests/ci -m ci -v --tb=short

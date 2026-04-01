@@ -29,3 +29,12 @@ Login as:
 ### 3. Getting Started
 
 Access the lab scenarios and descriptions and get started on http://localhost:8080
+
+## Testing
+
+- CI-safe tests: `make test-ci`
+- Full deployment validation: `make setup` or `make test-deployment`
+
+The CI-safe suite validates Python and bash scripts, YAML/config structure, merge logic,
+and template validation without requiring a live GitLab instance. The deployment suite
+targets the provisioned lab state, including global configuration and each scenario.
