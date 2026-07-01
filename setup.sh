@@ -244,7 +244,7 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         RUNNER_WAIT=0
         RUNNERS_FOUND=0
         while [ $RUNNER_WAIT -lt 60 ]; do
-            RUNNER_CHECK=$(python3 - <<'PY'
+            RUNNER_CHECK=$(GITLAB_HOST_URL="$GITLAB_HOST_URL" GITLAB_ADMIN_TOKEN="$GITLAB_ADMIN_TOKEN" python3 - <<'PY'
 import os
 import requests
 
@@ -349,7 +349,7 @@ if ! docker exec pentester true 2>/dev/null; then
 else
     # Create a dedicated pentester token for player workflows
     echo -e "  Creating pentester API token..."
-    NEW_PENTESTER_TOKEN=$(python3 - <<'PY'
+    NEW_PENTESTER_TOKEN=$(GITLAB_HOST_URL="$GITLAB_HOST_URL" GITLAB_ADMIN_TOKEN="$GITLAB_ADMIN_TOKEN" python3 - <<'PY'
 import os
 import time
 from datetime import datetime, timedelta, timezone
