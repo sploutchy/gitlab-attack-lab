@@ -1,0 +1,39 @@
+stages:
+  - recon
+  - breakout
+
+recon:
+  stage: recon
+  image: ubuntu:24.04
+  script:
+    - 'echo "[+] Scenario 04 attacker pipeline"'
+    - 'echo "[+] Checking shared runner breakout preconditions"'
+    - 'test -S /var/run/docker.sock && echo "docker_socket_present=true" || echo "docker_socket_present=false"'
+    - 'echo "CI project: ${CI_PROJECT_PATH}" > recon.txt'
+    - 'echo "Runner: ${CI_RUNNER_DESCRIPTION}" >> recon.txt'
+    - 'echo "Pipeline source: ${CI_PIPELINE_SOURCE}" >> recon.txt'
+  artifacts:
+    paths:
+      - recon.txt
+    expire_in: 1 week
+  tags:
+    - docker
+    - shared
+
+breakout:
+  stage: breakout
+  image: ubuntu:24.04
+  script:
+    - 'apt-get update >/dev/null 2>&1'
+    - 'apt-get install -y docker.io >/dev/null 2>&1'
+    - 'echo "[+] Attempting host breakout primitives from runner context"'
+    - 'docker ps >/tmp/docker-ps.txt || true'
+    - 'echo "Use gl-runner-harvester from host context to compromise recurring jobs" > breakout-next-steps.txt'
+  artifacts:
+    paths:
+      - /tmp/docker-ps.txt
+      - breakout-next-steps.txt
+    expire_in: 1 week
+  tags:
+    - docker
+    - shared

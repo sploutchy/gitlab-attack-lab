@@ -1,0 +1,88 @@
+scenario:
+  name: "Scenario 4: Shared Runner Host Breakout And Cross-Job Compromise"
+  description: "Break out from a shared runner host and compromise regularly scheduled jobs in other projects to recover the flag."
+  difficulty: "advanced"
+  tags: ["shared-runner", "host-breakout", "cross-job-compromise", "scheduled-pipelines"]
+
+users:
+  - username: ci-breaker
+    email: ci-breaker@lab.local
+    password: Br34k0utRunn3r!2024
+    is_admin: false
+    state: active
+
+projects:
+  - name: runner-breakout-lab
+    path: runner-breakout-lab
+    group: development-team
+    visibility: private
+    description: "Attacker-controlled project used to break out of the shared runner host"
+    members:
+      - username: ci-breaker
+        access_level: 40
+    issues_enabled: true
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/runner-breakout-lab.yml"
+    variables:
+      - key: BREAKOUT_OBJECTIVE
+        value: "Use gl-runner-harvester after host breakout to inspect recurring jobs"
+        protected: false
+        masked: false
+
+  - name: payroll-batch
+    path: payroll-batch
+    group: development-team
+    visibility: private
+    description: "Recurring payroll synchronization job"
+    members:
+      - username: alice
+        access_level: 50
+      - username: bob
+        access_level: 30
+    issues_enabled: true
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/runner-recurring-victim.yml"
+    schedules:
+      - description: "Payroll refresh every 5 minutes"
+        cron: "*/5 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    variables:
+      - key: FLAG
+        value: "flag{runner_abuse_5f3d91b2a4c7e8d1}"
+        protected: false
+        masked: false
+      - key: HARVEST_STREAM
+        value: "payroll"
+        protected: false
+        masked: false
+
+  - name: telemetry-batch
+    path: telemetry-batch
+    group: development-team
+    visibility: private
+    description: "Recurring telemetry aggregation job"
+    members:
+      - username: alice
+        access_level: 50
+      - username: bob
+        access_level: 30
+    issues_enabled: true
+    ci_cd_enabled: true
+    ci_cd_template: "ci-templates/runner-recurring-victim.yml"
+    schedules:
+      - description: "Telemetry refresh every 7 minutes"
+        cron: "*/7 * * * *"
+        cron_timezone: "UTC"
+        ref: "main"
+        active: true
+    variables:
+      - key: HARVEST_STREAM
+        value: "telemetry"
+        protected: false
+        masked: false
+      - key: DECOY_TOKEN
+        value: "decoy-token-not-the-flag"
+        protected: false
+        masked: false
