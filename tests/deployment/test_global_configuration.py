@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 import requests
+import yaml
 
 from .helpers import api_get_json, find_group, find_project, find_user
 
@@ -105,6 +107,91 @@ def test_runners_contacted(api_session, gitlab_host_url: str, structure_config: 
         time.sleep(poll_interval)
 
     pytest.skip("Runners have not contacted GitLab yet")
+
+
+def test_runner_tags_match_expected_configuration(api_session, gitlab_host_url: str, structure_config: dict):
+    runners = api_get_json(api_session, gitlab_host_url, "runners/all", params={"per_page": 100})
+    expected = {
+        runner_cfg["description"]: set(runner_cfg.get("tags", []))
+        for runner_cfg in structure_config.get("runners", [])
+    }
+
+    for description, expected_tags in expected.items():
+        matching = [runner for runner in runners if runner.get("description") == description]
+        assert matching, f"Runner {description} not found"
+
+        if not expected_tags:
+            continue
+
+        tag_match = False
+        for runner in matching:
+            details = api_get_json(api_session, gitlab_host_url, f"runners/{runner['id']}")
+            actual_tags = set(details.get("tag_list") or [])
+            if expected_tags.issubset(actual_tags):
+                tag_match = True
+                break
+
+        assert tag_match, (
+            f"Runner {description} missing expected tags {sorted(expected_tags)} "
+            "on all registered instances"
+        )
+
+
+def test_ci_template_tags_have_online_runner(api_session, gitlab_host_url: str, structure_config: dict):
+    runners = api_get_json(api_session, gitlab_host_url, "runners/all", params={"per_page": 100})
+
+    online_runner_tags = []
+    for runner in runners:
+        details = api_get_json(api_session, gitlab_host_url, f"runners/{runner['id']}")
+        if details.get("status") == "online":
+            online_runner_tags.append(set(details.get("tag_list") or []))
+
+    assert online_runner_tags, "No online runners found"
+
+    repo_root = Path(__file__).resolve().parents[2]
+    required_tags = set()
+    excluded_top_level_keys = {
+        "stages",
+        "variables",
+        "default",
+        "workflow",
+        "include",
+        "image",
+        "services",
+        "before_script",
+        "after_script",
+        "cache",
+    }
+
+    for project_cfg in structure_config.get("projects", []):
+        if not project_cfg.get("ci_cd_enabled"):
+            continue
+
+        template = project_cfg.get("ci_cd_template")
+        if not template:
+            continue
+
+        template_path = repo_root / "lab-config" / template
+        if not template_path.exists():
+            continue
+
+        with template_path.open("r", encoding="utf-8") as f:
+            ci_config = yaml.safe_load(f) or {}
+
+        for key, value in ci_config.items():
+            if key in excluded_top_level_keys or not isinstance(value, dict):
+                continue
+
+            job_tags = value.get("tags", [])
+            if isinstance(job_tags, list):
+                required_tags.update(str(tag) for tag in job_tags)
+
+    missing_tags = [
+        tag for tag in sorted(required_tags)
+        if not any(tag in tag_set for tag_set in online_runner_tags)
+    ]
+
+    assert not missing_tags, f"No online runner found for CI tags: {missing_tags}"
 
 
 def test_expected_containers_running(compose_containers):

@@ -239,19 +239,78 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
         fi
         
-        # Wait for runners to register (up to 60 seconds)
-        echo -e "  Waiting for runners to register and come online..."
+        # Wait for runners to register with expected tags (up to 60 seconds)
+        echo -e "  Waiting for runners to register with expected tags..."
         RUNNER_WAIT=0
         RUNNERS_FOUND=0
         while [ $RUNNER_WAIT -lt 60 ]; do
-            REGISTERED=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
-                "$GITLAB_HOST_URL/api/v4/runners/all" 2>/dev/null | grep -c '"status":"online"' 2>/dev/null || echo "0")
-            
-            # Clean up the variable to remove any whitespace/newlines
-            REGISTERED=$(echo "$REGISTERED" | tr -d '\n' | tail -1)
-            
-            if [ "$REGISTERED" -ge 2 ] 2>/dev/null; then
-                echo -e "${GREEN}  ✓${NC} Runners registered and online (${REGISTERED} runners)"
+            RUNNER_CHECK=$(python3 - <<'PY'
+import os
+import requests
+
+url = os.environ.get("GITLAB_HOST_URL", "").rstrip("/")
+token = os.environ.get("GITLAB_ADMIN_TOKEN", "")
+
+expected = {
+    "shared-docker-runner": {"docker", "linux", "shared"},
+    "shell-runner": {"shell"},
+}
+
+try:
+    session = requests.Session()
+    session.headers.update({"PRIVATE-TOKEN": token})
+
+    runners_resp = session.get(f"{url}/api/v4/runners/all", params={"per_page": 100}, timeout=10)
+    if runners_resp.status_code != 200:
+        print(f"api_status={runners_resp.status_code}")
+        raise SystemExit(0)
+
+    runners = runners_resp.json()
+    by_description = {}
+    for runner in runners:
+        description = runner.get("description")
+        by_description.setdefault(description, []).append(runner)
+
+    missing = []
+    missing_tags = []
+    for description, tags in expected.items():
+        candidates = by_description.get(description, [])
+        if not candidates:
+            missing.append(description)
+            continue
+
+        has_eligible_runner = False
+        for candidate in candidates:
+            details_resp = session.get(f"{url}/api/v4/runners/{candidate['id']}", timeout=10)
+            if details_resp.status_code != 200:
+                continue
+
+            details = details_resp.json()
+            if details.get("status") != "online":
+                continue
+
+            actual_tags = set(details.get("tag_list") or [])
+            if tags.issubset(actual_tags):
+                has_eligible_runner = True
+                break
+
+        if not has_eligible_runner:
+            missing_tags.append(description)
+
+    if missing or missing_tags:
+        print(f"not_ready missing={','.join(missing)} missing_tags={','.join(missing_tags)}")
+    else:
+        online_count = sum(1 for runner in runners if runner.get("status") == "online")
+        print(f"ready online={online_count}")
+except Exception as err:
+    print(f"check_error={err}")
+PY
+)
+
+            if [[ "$RUNNER_CHECK" == ready* ]]; then
+                REGISTERED=$(echo "$RUNNER_CHECK" | sed -n 's/.*online=\([0-9]\+\).*/\1/p')
+                [ -z "$REGISTERED" ] && REGISTERED="2"
+                echo -e "${GREEN}  ✓${NC} Runners are online and tag-matched (${REGISTERED} online)"
                 RUNNERS_FOUND=1
                 break
             fi
@@ -261,8 +320,8 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         done
         
         if [ "$RUNNERS_FOUND" -ne 1 ]; then
-            echo -e "${YELLOW}  ⚠${NC}  Only ${REGISTERED} runners online (expected 2)"
-            echo -e "${YELLOW}     Runners may take additional time to come online${NC}"
+            echo -e "${YELLOW}  ⚠${NC}  Runner readiness check did not pass: ${RUNNER_CHECK}"
+            echo -e "${YELLOW}     Tagged jobs may stay pending until runner registration completes${NC}"
         fi
     fi
 else
@@ -288,12 +347,76 @@ if ! docker exec pentester true 2>/dev/null; then
     echo -e "${YELLOW}⚠${NC} Pentester container not responding, skipping configuration"
     echo -e "${YELLOW}   You may need to manually run: docker-compose logs pentester${NC}"
 else
+    # Create a dedicated pentester token for player workflows
+    echo -e "  Creating pentester API token..."
+    NEW_PENTESTER_TOKEN=$(python3 - <<'PY'
+import os
+import time
+from datetime import datetime, timedelta, timezone
+
+import requests
+
+url = os.environ.get("GITLAB_HOST_URL", "").rstrip("/")
+admin_token = os.environ.get("GITLAB_ADMIN_TOKEN", "")
+
+session = requests.Session()
+session.headers.update({"PRIVATE-TOKEN": admin_token})
+
+try:
+    users_resp = session.get(f"{url}/api/v4/users", params={"username": "pentester", "per_page": 100}, timeout=15)
+    users_resp.raise_for_status()
+    users = users_resp.json()
+    pentester = next((u for u in users if u.get("username") == "pentester"), None)
+    if not pentester:
+        print("")
+        raise SystemExit(0)
+
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=365)).date().isoformat()
+    token_name = f"pentester-lab-token-{int(time.time())}"
+    token_resp = session.post(
+        f"{url}/api/v4/users/{pentester['id']}/personal_access_tokens",
+        data=[
+            ("name", token_name),
+            ("expires_at", expires_at),
+            ("scopes[]", "api"),
+            ("scopes[]", "read_api"),
+            ("scopes[]", "read_repository"),
+        ],
+        timeout=15,
+    )
+    if token_resp.status_code not in (200, 201):
+        print("")
+        raise SystemExit(0)
+
+    print(token_resp.json().get("token", ""))
+except Exception:
+    print("")
+PY
+)
+
+    ACTIVE_PENTESTER_TOKEN=""
+    if [ -n "$NEW_PENTESTER_TOKEN" ]; then
+        ACTIVE_PENTESTER_TOKEN="$NEW_PENTESTER_TOKEN"
+        if grep -q '^PENTESTER_TOKEN=' "$PROJECT_ROOT/.env"; then
+            sed -i "s/^PENTESTER_TOKEN=.*/PENTESTER_TOKEN=$ACTIVE_PENTESTER_TOKEN/" "$PROJECT_ROOT/.env"
+        else
+            echo "PENTESTER_TOKEN=$ACTIVE_PENTESTER_TOKEN" >> "$PROJECT_ROOT/.env"
+        fi
+        echo -e "${GREEN}  ✓${NC} Created pentester token and saved to .env"
+    elif [ -n "$PENTESTER_TOKEN" ]; then
+        ACTIVE_PENTESTER_TOKEN="$PENTESTER_TOKEN"
+        echo -e "${YELLOW}  ⚠${NC}  Could not mint a new pentester token, reusing existing PENTESTER_TOKEN"
+    else
+        ACTIVE_PENTESTER_TOKEN="$GITLAB_ADMIN_TOKEN"
+        echo -e "${YELLOW}  ⚠${NC}  Could not mint pentester token, falling back to admin token for tooling"
+    fi
+
     # Create pipeleek config directory
     docker exec pentester mkdir -p /root/.config/pipeleek 2>/dev/null || true
 
-    # Create pipeleek config with actual token (using docker exec directly)
+    # Create pipeleek config with runtime token (using docker exec directly)
     # Note: Use /root/.config/pipeleek/pipeleek.yaml as this is what pipeleek expects
-    docker exec -T pentester bash -c "echo 'gitlab:' > /root/.config/pipeleek/pipeleek.yaml && echo '  url: http://gitlab' >> /root/.config/pipeleek/pipeleek.yaml && echo \"  token: $GITLAB_ADMIN_TOKEN\" >> /root/.config/pipeleek/pipeleek.yaml" 2>/dev/null || true
+    docker exec -T pentester bash -c "echo 'gitlab:' > /root/.config/pipeleek/pipeleek.yaml && echo '  url: http://gitlab' >> /root/.config/pipeleek/pipeleek.yaml && echo \"  token: $ACTIVE_PENTESTER_TOKEN\" >> /root/.config/pipeleek/pipeleek.yaml" 2>/dev/null || true
 
     # Set proper permissions
     docker exec pentester chmod 600 /root/.config/pipeleek/pipeleek.yaml 2>/dev/null || true
