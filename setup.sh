@@ -396,8 +396,23 @@ else
 fi
 echo ""
 
-# Step 5: Configure pentester container
-echo -e "${YELLOW}[STEP 5]${NC} Configuring pentester container..."
+# Step 5: Validate runners and scenario readiness
+echo -e "${YELLOW}[STEP 5]${NC} Validating runners and scenario readiness..."
+echo -e "${YELLOW}         (This may take several minutes as jobs execute)${NC}"
+echo ""
+
+if ! GITLAB_HOST_URL="$GITLAB_HOST_URL" GITLAB_ADMIN_TOKEN="$GITLAB_ADMIN_TOKEN" VALIDATION_TIMEOUT=600 python3 "$PROJECT_ROOT/scripts/validate-runners.py"; then
+    echo ""
+    echo -e "${YELLOW}⚠${NC}  Validation incomplete or timed out"
+    echo -e "${YELLOW}     Some scenarios may not be ready yet. You can:"
+    echo -e "${YELLOW}     1. Wait a few minutes and try again (jobs may still be running)"
+    echo -e "${YELLOW}     2. Check job status at: http://$GITLAB_HOST_URL/dashboard/projects"
+    echo -e "${YELLOW}     3. Run: GITLAB_HOST_URL=$GITLAB_HOST_URL GITLAB_ADMIN_TOKEN=$GITLAB_ADMIN_TOKEN python3 $PROJECT_ROOT/scripts/validate-runners.py${NC}"
+fi
+echo ""
+
+# Step 6: Configure pentester container
+echo -e "${YELLOW}[STEP 6]${NC} Configuring pentester container..."
 
 # Wait for pentester container to be running (up to 30 seconds)
 PENTESTER_WAIT=0
