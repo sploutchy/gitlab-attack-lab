@@ -73,6 +73,9 @@ services:
     command:
       - -c
       - |
+        # Create initial config with proper concurrent setting
+        mkdir -p /etc/gitlab-runner
+        
         # Wait for runner token to be available
         while [ -z "$RUNNER_TOKEN_DOCKER" ]; do
           echo "Waiting for runner token to be set..."
@@ -96,8 +99,10 @@ services:
           --cache-dir /cache \
           --limit 5 || echo "Runner already registered"
         
-        # Update concurrent setting to allow parallel job execution
-        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+        # Ensure concurrent setting is set to 4 for parallel job execution
+        # This allows multiple jobs to run concurrently instead of queueing
+        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml || \
+          sed -i '1i concurrent = 4' /etc/gitlab-runner/config.toml
         
         # Start runner
         exec gitlab-runner run
@@ -125,6 +130,9 @@ services:
     command:
       - -c
       - |
+        # Create initial config with proper concurrent setting
+        mkdir -p /etc/gitlab-runner
+        
         # Wait for runner token to be available
         while [ -z "$RUNNER_TOKEN_SHELL" ]; do
           echo "Waiting for runner token to be set..."
@@ -143,8 +151,10 @@ services:
           --cache-dir /cache \
           --limit 5 || echo "Runner already registered"
         
-        # Update concurrent setting to allow parallel job execution
-        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+        # Ensure concurrent setting is set to 4 for parallel job execution
+        # This allows multiple jobs to run concurrently instead of queueing
+        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml || \
+          sed -i '1i concurrent = 4' /etc/gitlab-runner/config.toml
         
         # Start runner
         exec gitlab-runner run
