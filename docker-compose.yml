@@ -92,6 +92,7 @@ services:
           --executor docker \
           --clone-url "$GITLAB_URL" \
           --docker-image ubuntu:latest \
+          --docker-pull-policy if-not-present \
           --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
           --docker-network-mode lab-network \
           --docker-privileged=false \

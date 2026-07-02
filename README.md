@@ -11,6 +11,7 @@ make setup
 ```
 
 This will:
+- Pre-pull common CI runner images once (with retries)
 - Start all Docker containers
 - Initialize GitLab
 - Create users, groups, projects with CI/CD pipelines

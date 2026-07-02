@@ -31,6 +31,42 @@ echo -e "${BLUE}║                                                             
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Step 0: Pre-pull CI job images so pipelines do not repeatedly hit Docker Hub
+echo -e "${YELLOW}[STEP 0]${NC} Pre-pulling CI runner images (best effort)..."
+CI_PREPULL_IMAGES=${CI_PREPULL_IMAGES:-"alpine:latest alpine:3.19 alpine:3.20 ubuntu:latest ubuntu:24.04 node:18 python:3.11 renovate/renovate:37-full"}
+PREPULL_FAILED=0
+
+for IMAGE in $CI_PREPULL_IMAGES; do
+    echo -e "  Pulling $IMAGE"
+    PULL_OK=0
+
+    for ATTEMPT in 1 2 3; do
+        if docker pull "$IMAGE" >/tmp/gitlab-setup-image-pull.log 2>&1; then
+            echo -e "${GREEN}  ✓${NC} Pulled $IMAGE"
+            PULL_OK=1
+            break
+        fi
+
+        if [ "$ATTEMPT" -lt 3 ]; then
+            echo -e "${YELLOW}  •${NC} Retry $ATTEMPT failed for $IMAGE, retrying..."
+            sleep 2
+        fi
+    done
+
+    if [ "$PULL_OK" -ne 1 ]; then
+        PREPULL_FAILED=$((PREPULL_FAILED + 1))
+        echo -e "${YELLOW}  ⚠${NC} Could not pre-pull $IMAGE (continuing setup)"
+        tail -n 5 /tmp/gitlab-setup-image-pull.log || true
+    fi
+done
+
+if [ "$PREPULL_FAILED" -eq 0 ]; then
+    echo -e "${GREEN}✓${NC} CI runner images pre-pulled"
+else
+    echo -e "${YELLOW}⚠${NC} ${PREPULL_FAILED} image(s) could not be pre-pulled; setup will continue"
+fi
+echo ""
+
 # Step 1: Start Docker Compose services
 echo -e "${YELLOW}[STEP 1]${NC} Starting Docker Compose services..."
 cd "$PROJECT_ROOT"
