@@ -39,3 +39,11 @@ Access the lab scenarios and descriptions and get started on http://localhost:80
 The CI-safe suite validates Python and bash scripts, YAML/config structure, merge logic,
 and template validation without requiring a live GitLab instance. The deployment suite
 targets the provisioned lab state, including global configuration and each scenario.
+
+## System Requirements
+
+This lab runs multiple heavy services (GitLab, runners, web app, pentester tooling).
+
+- **CPU:** 4 vCPUs recommended (2 vCPUs minimum, but slower setup and job execution)
+- **RAM:** 8 GB recommended (4 GB minimum, but GitLab may be unstable under load)
+- **Disk Absolute minimum:** 20 GB free
