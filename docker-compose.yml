@@ -80,12 +80,13 @@ services:
         done
         
         # Register runner using modern authentication token method
+        # Note: --tag-list cannot be used with token-based auth in GitLab 19.1+
+        # Tags will be set via API after registration
         gitlab-runner register \
           --non-interactive \
           --url "$GITLAB_URL" \
           --token "$RUNNER_TOKEN_DOCKER" \
           --executor docker \
-          --tag-list "docker,linux,shared" \
           --clone-url "$GITLAB_URL" \
           --docker-image ubuntu:latest \
           --docker-volumes /var/run/docker.sock:/var/run/docker.sock \
@@ -128,12 +129,13 @@ services:
         done
         
         # Register runner using modern authentication token method
+        # Note: --tag-list cannot be used with token-based auth in GitLab 19.1+
+        # Tags will be set via API after registration
         gitlab-runner register \
           --non-interactive \
           --url "$GITLAB_URL" \
           --token "$RUNNER_TOKEN_SHELL" \
           --executor shell \
-          --tag-list "shell,privileged" \
           --builds-dir /builds \
           --cache-dir /cache \
           --limit 5 || echo "Runner already registered"

@@ -239,6 +239,72 @@ if [ $POPULATE_EXIT -eq 0 ]; then
             echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
         fi
         
+        # Wait for runners to be registered via GitLab API (before setting tags)
+        echo -e "  Waiting for runners to register with GitLab..."
+        RUNNER_REG_WAIT=0
+        while [ $RUNNER_REG_WAIT -lt 30 ]; do
+            RUNNER_COUNT=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_ADMIN_TOKEN" \
+                "$GITLAB_HOST_URL/api/v4/runners/all?per_page=100" 2>/dev/null | jq 'length' || echo 0)
+            
+            if [ "$RUNNER_COUNT" -ge 2 ]; then
+                echo -e "${GREEN}  ✓${NC} Runners registered with GitLab (found $RUNNER_COUNT)"
+                break
+            fi
+            
+            sleep 2
+            RUNNER_REG_WAIT=$((RUNNER_REG_WAIT + 2))
+        done
+        
+        # Set runner tags via API (required in GitLab 19.1+)
+        echo -e "  Setting runner tags via API..."
+        GITLAB_HOST_URL="$GITLAB_HOST_URL" GITLAB_ADMIN_TOKEN="$GITLAB_ADMIN_TOKEN" python3 - <<'PYTHON_SET_TAGS'
+import os
+import requests
+import json
+
+url = os.environ.get("GITLAB_HOST_URL", "").rstrip("/")
+token = os.environ.get("GITLAB_ADMIN_TOKEN", "")
+
+session = requests.Session()
+session.headers.update({"PRIVATE-TOKEN": token})
+
+try:
+    # Get all runners
+    runners_resp = session.get(f"{url}/api/v4/runners/all", params={"per_page": 100}, timeout=10)
+    runners = runners_resp.json()
+    
+    # Map descriptions to expected tags
+    tag_mapping = {
+        "shared-docker-runner": ["docker", "linux", "shared"],
+        "shell-runner": ["shell", "privileged"],
+    }
+    
+    for runner in runners:
+        desc = runner.get("description", "")
+        runner_id = runner.get("id")
+        
+        if desc in tag_mapping:
+            expected_tags = tag_mapping[desc]
+            current_tags = runner.get("tag_list") or []
+            
+            # Only update if tags are missing
+            if set(current_tags) != set(expected_tags):
+                update_resp = session.put(
+                    f"{url}/api/v4/runners/{runner_id}",
+                    json={"tag_list": expected_tags},
+                    timeout=10
+                )
+                
+                if update_resp.status_code == 200:
+                    print(f"✓ Updated {desc} tags to {expected_tags}")
+                else:
+                    print(f"⚠ Failed to update {desc} tags: {update_resp.status_code}")
+            else:
+                print(f"✓ {desc} already has correct tags: {expected_tags}")
+except Exception as e:
+    print(f"Error setting runner tags: {e}")
+PYTHON_SET_TAGS
+        
         # Wait for runners to register with expected tags (up to 60 seconds)
         echo -e "  Waiting for runners to register with expected tags..."
         RUNNER_WAIT=0
