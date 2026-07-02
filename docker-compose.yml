@@ -96,6 +96,9 @@ services:
           --cache-dir /cache \
           --limit 5 || echo "Runner already registered"
         
+        # Update concurrent setting to allow parallel job execution
+        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
+        
         # Start runner
         exec gitlab-runner run
 
@@ -139,6 +142,9 @@ services:
           --builds-dir /builds \
           --cache-dir /cache \
           --limit 5 || echo "Runner already registered"
+        
+        # Update concurrent setting to allow parallel job execution
+        sed -i 's/^concurrent = .*/concurrent = 4/' /etc/gitlab-runner/config.toml
         
         # Start runner
         exec gitlab-runner run
