@@ -50,3 +50,5 @@ In possession of a new PAT you can again enumerate your newly discovered access 
 ### Phase 3: Artifact Extraction (Environment Files)
 
 Find all the flags
+
+**Hint:** Sometimes not all configured variables are actually used - focus on those that appear in the artifacts or logs.
