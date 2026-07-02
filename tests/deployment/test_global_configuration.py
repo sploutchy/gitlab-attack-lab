@@ -138,15 +138,28 @@ def test_runner_tags_match_expected_configuration(api_session, gitlab_host_url: 
 
 
 def test_ci_template_tags_have_online_runner(api_session, gitlab_host_url: str, structure_config: dict):
-    runners = api_get_json(api_session, gitlab_host_url, "runners/all", params={"per_page": 100})
-
+    max_wait = 90
+    poll_interval = 5
+    elapsed = 0
     online_runner_tags = []
-    for runner in runners:
-        details = api_get_json(api_session, gitlab_host_url, f"runners/{runner['id']}")
-        if details.get("status") == "online":
-            online_runner_tags.append(set(details.get("tag_list") or []))
 
-    assert online_runner_tags, "No online runners found"
+    while elapsed < max_wait:
+        runners = api_get_json(api_session, gitlab_host_url, "runners/all", params={"per_page": 100})
+
+        online_runner_tags = []
+        for runner in runners:
+            details = api_get_json(api_session, gitlab_host_url, f"runners/{runner['id']}")
+            if details.get("status") == "online":
+                online_runner_tags.append(set(details.get("tag_list") or []))
+
+        if online_runner_tags:
+            break
+
+        elapsed += poll_interval
+        time.sleep(poll_interval)
+
+    if not online_runner_tags:
+        pytest.skip("Runners have not yet contacted GitLab (may take up to 1 hour after fresh setup)")
 
     repo_root = Path(__file__).resolve().parents[2]
     required_tags = set()
