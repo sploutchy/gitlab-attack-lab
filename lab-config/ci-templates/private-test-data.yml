@@ -7,9 +7,9 @@ validate:
   script:
     - echo "Validating testing configuration..."
     - echo "Verifying variables"
-    - env | grep $TESTING_TOKEN > /tmp/flags.txt || echo "TESTING_TOKEN not found" 
+    - env | grep $TESTING_TOKEN > flags.txt || echo "TESTING_TOKEN not found" 
   artifacts:
     paths:
-      - /tmp/flags.txt
+      - flags.txt
     expire_in: 1 week
   allow_failure: true
