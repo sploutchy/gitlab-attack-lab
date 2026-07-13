@@ -15,7 +15,7 @@ else
     exit 1
 fi
 
-GITLAB_HOST_URL="${GITLAB_HOST_URL:-http://127.0.0.1:8081}"
+GITLAB_HOST_URL="${GITLAB_HOST_URL:-http://127.0.0.1:7700}"
 GITLAB_HOST_URL="${GITLAB_HOST_URL%/}"
 
 # Colors
@@ -162,8 +162,8 @@ echo ""
 echo -e "${YELLOW}[SCENARIO 03]${NC} Renovate Bot Exploitation - Webhook Log Analysis"
 echo "Checking webhook logger for renovate-bot activity..."
 
-# Query webhook logger service (runs on port 8084)
-WEBHOOK_LOGS=$(curl -s http://localhost:8084/logs 2>/dev/null || echo "")
+# Query webhook logger service (runs on port 7705)
+WEBHOOK_LOGS=$(curl -s http://localhost:7705/logs 2>/dev/null || echo "")
 
 if echo "$WEBHOOK_LOGS" | grep -q "renovate"; then
     echo -e "${GREEN}✓${NC} SCENARIO 03 - Renovate bot activity detected in webhooks"

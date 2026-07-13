@@ -32,7 +32,7 @@ GitLab Attack Lab is an interactive learning platform for understanding GitLab C
 
 ## Scenario Description
 
-1. Open your browser and navigate the GitLab login mask http://127.0.0.1:8081
+1. Open your browser and navigate the GitLab login mask http://127.0.0.1:7700
 2. Login with credential `pentester` and `SecureP3nt3st3r@2024!`
 3. Look at the projects your user has access to e.g. is a member of
 4. The first flag follows this pattern: `flag{welcome_XXXXXXXXXXXXXXXX}`

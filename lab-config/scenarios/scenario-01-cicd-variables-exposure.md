@@ -34,7 +34,7 @@ Many teams store secrets as [CI/CD variables](https://docs.gitlab.com/ci/variabl
 From the lab root, run: `make shell` This opens a shell in the pentester container.
 
 Then  create a new  Personal Access Token in the GitLab UI: 
-1. Go to http://localhost:8081 > User menu > Settings > Access Tokens
+1. Go to http://localhost:7700 > User menu > Settings > Access Tokens
 2. Set the Scopes: api, read_api, read_repository
 3. Then add the created token to under the `token` key in the Pipeleek config file `~/.config/pipeleek/pipeleek.yaml`
 

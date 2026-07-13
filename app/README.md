@@ -145,7 +145,7 @@ Or manually start it:
 make start
 ```
 
-Access the web app at: **http://127.0.0.1:8080**
+Access the web app at: **http://127.0.0.1:7706**
 
 ### Management Commands
 
@@ -204,7 +204,7 @@ lab-web:
     dockerfile: docker/Dockerfile
   container_name: lab-web-app
   ports:
-    - "8080:8000"
+    - "7706:8000"
   volumes:
     - ./app:/app
     - ./lab-config/scenarios:/app/scenarios:ro

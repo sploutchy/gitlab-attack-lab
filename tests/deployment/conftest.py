@@ -17,7 +17,7 @@ pytestmark = pytest.mark.deployment
 
 @pytest.fixture(scope="session")
 def gitlab_host_url() -> str:
-    return (env_value("GITLAB_HOST_URL", "http://127.0.0.1:8081") or "http://127.0.0.1:8081").rstrip("/")
+    return (env_value("GITLAB_HOST_URL", "http://127.0.0.1:7700") or "http://127.0.0.1:7700").rstrip("/")
 
 
 @pytest.fixture(scope="session")

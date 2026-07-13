@@ -100,7 +100,7 @@
 - Private app project configured
 - RENOVATE_TOKEN and FLAG variables set
 - Pipeline schedule and renovate.json configured
-- Webhook logger available on port 8084
+- Webhook logger available on port 7705
 
 ✅ Scenario 04 - Runner Abuse (4 tests)
 - ci-breaker user exists

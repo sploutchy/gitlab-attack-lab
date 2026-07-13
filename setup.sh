@@ -14,7 +14,7 @@ else
     exit 1
 fi
 
-GITLAB_HOST_URL="${GITLAB_HOST_URL:-http://127.0.0.1:8081}"
+GITLAB_HOST_URL="${GITLAB_HOST_URL:-http://127.0.0.1:7700}"
 GITLAB_HOST_URL="${GITLAB_HOST_URL%/}"
 
 # Colors for output
