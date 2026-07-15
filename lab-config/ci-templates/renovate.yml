@@ -3,7 +3,7 @@ stages:
 
 renovate:
   stage: renovate
-  image: renovate/renovate:37-full
+  image: renovate/renovate:43-full
   variables:
     RENOVATE_PLATFORM: gitlab
     RENOVATE_ENDPOINT: "${CI_SERVER_URL}/api/v4"

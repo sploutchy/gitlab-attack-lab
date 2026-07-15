@@ -1,8 +1,8 @@
 scenario:
-  name: "Scenario 4: Shared Runner Host Breakout And Cross-Job Compromise"
-  description: "Break out from a shared runner host and compromise regularly scheduled jobs in other projects to recover the flag."
+  name: "Scenario 4: Shared Runner Access And Cross-Job Compromise"
+  description: "Gain interactive shared-runner execution context and compromise regularly scheduled jobs in other projects to recover the flag."
   difficulty: "advanced"
-  tags: ["shared-runner", "host-breakout", "cross-job-compromise", "scheduled-pipelines"]
+  tags: ["shared-runner", "runner-access", "cross-job-compromise", "scheduled-pipelines"]
 
 users:
   - username: ci-breaker
@@ -16,7 +16,7 @@ projects:
     path: runner-breakout-lab
     group: development-team
     visibility: private
-    description: "Attacker-controlled project used to break out of the shared runner host"
+    description: "Attacker-controlled project used to gain shared runner execution access"
     members:
       - username: ci-breaker
         access_level: 40
@@ -25,7 +25,7 @@ projects:
     ci_cd_template: "ci-templates/runner-breakout-lab.yml"
     variables:
       - key: BREAKOUT_OBJECTIVE
-        value: "Use gl-runner-harvester after host breakout to inspect recurring jobs"
+        value: "Use gl-runner-harvester after gaining runner execution context to inspect recurring jobs"
         protected: false
         masked: false
 

@@ -33,7 +33,7 @@ echo ""
 
 # Step 0: Pre-pull CI job images so pipelines do not repeatedly hit Docker Hub
 echo -e "${YELLOW}[STEP 0]${NC} Pre-pulling CI runner images (best effort)..."
-CI_PREPULL_IMAGES=${CI_PREPULL_IMAGES:-"alpine:latest alpine:3.19 alpine:3.20 ubuntu:latest ubuntu:24.04 node:18 python:3.11 renovate/renovate:37-full"}
+CI_PREPULL_IMAGES=${CI_PREPULL_IMAGES:-"alpine:latest alpine:3.19 alpine:3.20 ubuntu:latest ubuntu:24.04 node:18 python:3.11 renovate/renovate:43-full"}
 PREPULL_FAILED=0
 
 for IMAGE in $CI_PREPULL_IMAGES; do
