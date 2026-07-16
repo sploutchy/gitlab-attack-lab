@@ -206,8 +206,33 @@ cd "$PROJECT_ROOT"
 if ! command -v python3 &> /dev/null; then
     echo -e "${RED}✗${NC} Python3 not found. Installing..."
     apt-get update > /dev/null 2>&1
-    apt-get install -y python3 python3-pip > /dev/null 2>&1
+    apt-get install -y python3 python3-pip python3-venv > /dev/null 2>&1
 fi
+
+# Use a dedicated virtualenv for setup scripts: modern Debian/Ubuntu
+# Python refuses system-wide pip installs (PEP 668, externally-managed-
+# environment), and silently swallowing that failure previously caused
+# a confusing ModuleNotFoundError later instead of a clear pip error.
+VENV_DIR="$PROJECT_ROOT/.venv"
+if [ ! -x "$VENV_DIR/bin/pip3" ]; then
+    rm -rf "$VENV_DIR"
+    if ! python3 -m venv "$VENV_DIR" 2>/tmp/gitlab-setup-venv.log; then
+        echo -e "${YELLOW}  •${NC} python3-venv not available, installing..."
+        if ! { apt-get update && apt-get install -y python3-venv; } >/tmp/gitlab-setup-venv-apt.log 2>&1; then
+            echo -e "${RED}✗${NC} Failed to create Python virtualenv: python3-venv is missing and could not be installed automatically"
+            echo -e "${YELLOW}   This requires root. Install it manually with: sudo apt-get install python3-venv${NC}"
+            tail -n 20 /tmp/gitlab-setup-venv-apt.log || true
+            exit 1
+        fi
+        rm -rf "$VENV_DIR"
+        if ! python3 -m venv "$VENV_DIR"; then
+            echo -e "${RED}✗${NC} Failed to create Python virtualenv"
+            cat /tmp/gitlab-setup-venv.log 2>/dev/null || true
+            exit 1
+        fi
+    fi
+fi
+export PATH="$VENV_DIR/bin:$PATH"
 
 # Check if jq is available (used to parse GitLab API responses)
 if ! command -v jq &> /dev/null; then
@@ -221,7 +246,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Install required Python packages
-pip3 install -q pyyaml requests 2>/dev/null || true
+pip3 install -q pyyaml requests
 
 # Merge scenarios into a single config
 MERGED_CONFIG="/tmp/gitlab-lab-merged.yml"
