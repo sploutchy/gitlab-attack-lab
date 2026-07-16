@@ -39,12 +39,13 @@ This scenario uses Pipeleek. If you haven't already, complete the "Tooling Setup
 
 > Pipeleek does not detect the flag format as secret by default, therefore we need to add a custom rule to our Pipeleek secret rules configuration.
 
-Add the new custom rule to the `rules.yml` file
+Pipeleek doesn't ship a `rules.yml` until you run it once, so first run a scan to generate the default file:
 ```bash
-# run the tool first so it will populate the rules.yml intially
 pipeleek scan
+```
 
-# Add the new rule to the now existing file
+Now add the new custom rule to the generated `rules.yml` file:
+```bash
 cat <<'EOF' >> rules.yml
   - pattern:
       name: Lab Flag
