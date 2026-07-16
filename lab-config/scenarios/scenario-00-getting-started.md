@@ -36,3 +36,26 @@ GitLab Attack Lab is an interactive learning platform for understanding GitLab C
 2. Login with credential `pentester` and `SecureP3nt3st3r@2024!`
 3. Look at the projects your user has access to e.g. is a member of
 4. The first flag follows this pattern: `flag{welcome_XXXXXXXXXXXXXXXX}`
+
+## Tooling Setup
+
+Several later scenarios use [Pipeleek](https://github.com/CompassSecurity/pipeleek), pre-installed in the pentester container. Set it up now so it's ready when you need it:
+
+1. Start the pentester container: `make shell`
+2. Create a new Personal Access Token in the GitLab UI:
+   - Go to http://localhost:7700 > User Settings > Access > Personal Access Tokens
+   - Set the Scopes: api, read_api, read_repository
+3. Add the created token under the `token` key in the Pipeleek config file `~/.config/pipeleek/pipeleek.yaml`:
+
+```bash
+# edit the config file
+vim ~/.config/pipeleek/pipeleek.yaml
+
+# Modify the content and add the PAT you've generated before
+gitlab:
+  url: http://gitlab
+  token: glpat-3qXyv3VI_nWJ8uin5ucy6m86MQp1OjIH.01.[example]
+
+# Test it's working
+pipeleek enum
+```
