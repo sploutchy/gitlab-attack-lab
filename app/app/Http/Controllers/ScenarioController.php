@@ -43,10 +43,15 @@ class ScenarioController extends Controller
     public function show(string $slug): View
     {
         $scenario = $this->scenarioService->getScenarioBySlug($slug);
-        
+
         if (!$scenario) {
             abort(404, "Scenario not found: {$slug}");
         }
+
+        // Find the next scenario (by order) to link to from this page
+        $allScenarios = $this->scenarioService->getAllScenarios();
+        $currentIndex = $allScenarios->search(fn ($s) => $s['slug'] === $slug);
+        $nextScenario = $currentIndex !== false ? $allScenarios->get($currentIndex + 1) : null;
 
         // Parse markdown to HTML
         $parsedown = new Parsedown();
@@ -74,6 +79,7 @@ class ScenarioController extends Controller
             'htmlContent' => $htmlContent,
             'foundFlags' => $foundFlags,
             'difficultyColor' => $this->scenarioService->getDifficultyColor($scenario['difficulty']),
+            'nextScenario' => $nextScenario,
         ]);
     }
 

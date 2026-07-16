@@ -149,3 +149,25 @@ body {
     transform: translateY(0);
   }
 }
+
+.next-btn-pop {
+  animation: nextBtnPop 0.6s ease-out;
+}
+
+@keyframes nextBtnPop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0.5);
+  }
+  30% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px hsl(var(--p) / 0.35);
+  }
+  60% {
+    transform: scale(0.97);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0);
+  }
+}

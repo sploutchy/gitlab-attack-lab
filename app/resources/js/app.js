@@ -134,7 +134,15 @@ Alpine.data('flagSubmissionForm', () => ({
             if (data.success) {
                 this.showMessage(data.message, 'success');
                 this.flag = '';
-                
+
+                // Draw attention to the Next button
+                const nextBtn = document.getElementById('next-scenario-btn');
+                if (nextBtn) {
+                    nextBtn.classList.remove('next-btn-pop');
+                    void nextBtn.offsetWidth; // restart the animation if triggered again
+                    nextBtn.classList.add('next-btn-pop');
+                }
+
                 // Reload to show updated flag count
                 setTimeout(() => {
                     location.reload();
