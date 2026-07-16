@@ -1,6 +1,11 @@
 .PHONY: help setup test-ci test-deployment start stop restart destroy status logs shell gitlab-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs lab-web-restart lab-web-rebuild lab-web-watch
 
 DOCKER_COMPOSE := docker compose
+# setup.sh installs test/scenario-tooling dependencies into a project-local venv
+# (PEP 668 blocks system-wide pip installs on modern Debian/Ubuntu). Each Makefile
+# recipe line runs in its own shell, so that venv's PATH never reaches us here -
+# point straight at its python3 when present instead of falling back to the system one.
+PYTHON := $(shell [ -x .venv/bin/python3 ] && echo .venv/bin/python3 || echo python3)
 
 help:
 	@echo "╔════════════════════════════════════════════════╗"
@@ -46,17 +51,17 @@ setup:
 	@$(MAKE) --no-print-directory test-deployment
 
 test-ci:
-	@python3 -m pytest tests/ci -m ci -v --tb=short
+	@$(PYTHON) -m pytest tests/ci -m ci -v --tb=short
 
 test-deployment:
-	@python3 -m pytest tests/deployment -m deployment -v --tb=short
+	@$(PYTHON) -m pytest tests/deployment -m deployment -v --tb=short
 
 merge-scenarios:
-	@python3 scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --output /tmp/gitlab-lab-merged.yml
+	@$(PYTHON) scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --output /tmp/gitlab-lab-merged.yml
 	@echo "[+] Merged config written to /tmp/gitlab-lab-merged.yml"
 
 validate-scenarios:
-	@python3 scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --validate-only
+	@$(PYTHON) scripts/merge-scenarios.py --base lab-config/base.yml --scenarios lab-config/scenarios --validate-only
 	@echo "[+] Scenario validation passed"
 
 start:

@@ -255,6 +255,10 @@ SCENARIO_INPUTS=${SCENARIOS:-"$PROJECT_ROOT/lab-config/scenarios"}
 echo -e "${YELLOW}  •${NC} Installing Python dependencies..."
 pip3 install -q -r "$PROJECT_ROOT/scripts/requirements.txt" 2>&1 | grep -v "already satisfied" || true
 
+# 'make setup' chains into 'make test-deployment' once this script exits, so the
+# test suite's own dependencies (pytest, etc.) need to land in the venv too.
+pip3 install -q -r "$PROJECT_ROOT/tests/requirements.txt" 2>&1 | grep -v "already satisfied" || true
+
 echo -e "${YELLOW}  •${NC} Merging scenario files..."
 python3 "$PROJECT_ROOT/scripts/merge-scenarios.py" \
     --base "$PROJECT_ROOT/lab-config/base.yml" \
