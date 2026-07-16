@@ -209,6 +209,17 @@ if ! command -v python3 &> /dev/null; then
     apt-get install -y python3 python3-pip > /dev/null 2>&1
 fi
 
+# Check if jq is available (used to parse GitLab API responses)
+if ! command -v jq &> /dev/null; then
+    echo -e "${YELLOW}  •${NC} jq not found, installing..."
+    if ! { apt-get update && apt-get install -y jq; } >/tmp/gitlab-setup-jq-apt.log 2>&1; then
+        echo -e "${RED}✗${NC} Failed to install jq automatically"
+        echo -e "${YELLOW}   This requires root. Install it manually with: sudo apt-get install jq${NC}"
+        tail -n 20 /tmp/gitlab-setup-jq-apt.log || true
+        exit 1
+    fi
+fi
+
 # Install required Python packages
 pip3 install -q pyyaml requests 2>/dev/null || true
 
