@@ -206,11 +206,29 @@ cd "$PROJECT_ROOT"
 if ! command -v python3 &> /dev/null; then
     echo -e "${RED}✗${NC} Python3 not found. Installing..."
     apt-get update > /dev/null 2>&1
-    apt-get install -y python3 python3-pip > /dev/null 2>&1
+    apt-get install -y python3 python3-pip python3-venv > /dev/null 2>&1
 fi
 
+# Use a dedicated virtualenv for setup scripts: modern Debian/Ubuntu
+# Python refuses system-wide pip installs (PEP 668, externally-managed-
+# environment), and silently swallowing that failure previously caused
+# a confusing ModuleNotFoundError later instead of a clear pip error.
+VENV_DIR="$PROJECT_ROOT/.venv"
+if [ ! -d "$VENV_DIR" ] && ! python3 -m venv "$VENV_DIR" 2>/tmp/gitlab-setup-venv.log; then
+    echo -e "${YELLOW}  •${NC} python3-venv not available, installing..."
+    apt-get update > /dev/null 2>&1
+    apt-get install -y python3-venv > /dev/null 2>&1
+    rm -rf "$VENV_DIR"
+    if ! python3 -m venv "$VENV_DIR"; then
+        echo -e "${RED}✗${NC} Failed to create Python virtualenv"
+        cat /tmp/gitlab-setup-venv.log 2>/dev/null || true
+        exit 1
+    fi
+fi
+export PATH="$VENV_DIR/bin:$PATH"
+
 # Install required Python packages
-pip3 install -q pyyaml requests 2>/dev/null || true
+pip3 install -q pyyaml requests
 
 # Merge scenarios into a single config
 MERGED_CONFIG="/tmp/gitlab-lab-merged.yml"
