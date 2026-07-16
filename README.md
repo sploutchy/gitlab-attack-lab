@@ -19,17 +19,9 @@ This will:
 
 **Time: 5-15 minutes**
 
-### 2. Access GitLab Web UI
+### 2. Get Started
 
-Open your browser: `http://127.0.0.1:7700`
-
-Login as:
-- **Username:** `pentester`
-- **Password:** `SecureP3nt3st3r@2024!`
-
-### 3. Getting Started
-
-Access the lab scenarios and descriptions and get started on http://localhost:7706
+Access the lab scenarios and descriptions at http://localhost:7706 — start with Scenario 00, which walks you through logging into GitLab and completing your first flag.
 
 ## System Requirements
 
