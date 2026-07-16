@@ -1,6 +1,6 @@
 .PHONY: help setup test-ci test-deployment start stop restart destroy status logs shell gitlab-shell merge-scenarios validate-scenarios lab-web-shell lab-web-logs lab-web-restart lab-web-rebuild lab-web-watch
 
-DOCKER_COMPOSE := docker-compose
+DOCKER_COMPOSE := docker compose
 
 help:
 	@echo "╔════════════════════════════════════════════════╗"

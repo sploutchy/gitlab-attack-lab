@@ -21,7 +21,7 @@ GITLAB_HOST_URL="${GITLAB_HOST_URL%/}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
+BLUE='\033[1;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -70,7 +70,7 @@ echo ""
 # Step 1: Start Docker Compose services
 echo -e "${YELLOW}[STEP 1]${NC} Starting Docker Compose services..."
 cd "$PROJECT_ROOT"
-if ! docker-compose up -d >/tmp/gitlab-setup-compose-up.log 2>&1; then
+if ! docker compose up -d >/tmp/gitlab-setup-compose-up.log 2>&1; then
     echo -e "${RED}✗${NC} Failed to start Docker Compose services"
     tail -n 50 /tmp/gitlab-setup-compose-up.log || true
     exit 1
@@ -111,7 +111,7 @@ while true; do
     if [ "$ATTEMPT" -ge "$MAX_WAIT_SECONDS" ]; then
         echo -e "${RED}✗${NC} GitLab did not become reachable within ${MAX_WAIT_SECONDS}s"
         echo -e "${YELLOW}Recent GitLab logs:${NC}"
-        docker-compose logs --tail=80 gitlab || true
+        docker compose logs --tail=80 gitlab || true
         exit 1
     fi
     sleep 1
@@ -234,6 +234,17 @@ if [ ! -x "$VENV_DIR/bin/pip3" ]; then
 fi
 export PATH="$VENV_DIR/bin:$PATH"
 
+# Check if jq is available (used to parse GitLab API responses)
+if ! command -v jq &> /dev/null; then
+    echo -e "${YELLOW}  •${NC} jq not found, installing..."
+    if ! { apt-get update && apt-get install -y jq; } >/tmp/gitlab-setup-jq-apt.log 2>&1; then
+        echo -e "${RED}✗${NC} Failed to install jq automatically"
+        echo -e "${YELLOW}   This requires root. Install it manually with: sudo apt-get install jq${NC}"
+        tail -n 20 /tmp/gitlab-setup-jq-apt.log || true
+        exit 1
+    fi
+fi
+
 # Install required Python packages
 pip3 install -q pyyaml requests
 
@@ -292,11 +303,11 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         
         # Remove old runner containers to force recreation with new env vars
         echo -e "  Removing old runner containers..."
-        docker-compose rm -f gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1 || true
+        docker compose rm -f gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1 || true
         
         # Recreate runner containers with new tokens from .env
         echo -e "  Creating runner containers with new tokens..."
-        if ! docker-compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | tee /tmp/runner-create.log | grep -v "^$" > /dev/null; then
+        if ! docker compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | tee /tmp/runner-create.log | grep -v "^$" > /dev/null; then
             echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
         fi
         
@@ -487,7 +498,7 @@ done
 
 if ! docker exec pentester true 2>/dev/null; then
     echo -e "${YELLOW}⚠${NC} Pentester container not responding, skipping configuration"
-    echo -e "${YELLOW}   You may need to manually run: docker-compose logs pentester${NC}"
+    echo -e "${YELLOW}   You may need to manually run: docker compose logs pentester${NC}"
 else
     # Create a dedicated pentester token for player workflows
     echo -e "  Creating pentester API token..."
@@ -605,9 +616,9 @@ if docker exec pentester true 2>/dev/null; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Entering pentester container...${NC}"
-        docker-compose exec -it pentester /bin/bash
+        docker compose exec -it pentester /bin/bash
     fi
 else
     echo -e "${YELLOW}⚠ Pentester container is not running.${NC}"
-    echo "  You can enter it later with: docker-compose exec -it pentester /bin/bash"
+    echo "  You can enter it later with: docker compose exec -it pentester /bin/bash"
 fi

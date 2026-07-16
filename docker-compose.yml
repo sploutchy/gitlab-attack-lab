@@ -187,7 +187,7 @@ services:
     environment:
       GITLAB_URL: "http://gitlab"
       GITLAB_TOKEN: "${PENTESTER_TOKEN:-}"
-      PS1: "[pentester@lab] \\w $ "
+      PS1: "[pentester@lab] \\w $$ "
     command: /bin/bash -c "while true; do sleep 3600; done"
 
   # Lightweight Node.js webhook logger for Renovate autodiscovery exfiltration

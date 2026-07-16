@@ -72,17 +72,25 @@ body {
   @apply bg-transparent px-0 py-0 font-normal text-base-content;
 }
 
-/* Enhanced code block styling */
+/* Enhanced code block styling. Code blocks always render dark
+   (matching the highlight.js "github-dark" theme they use), regardless
+   of the site's own light/dark theme — hljs's syntax colors are tuned
+   for a dark background and are unreadable on a light one. */
 .code-block-wrapper {
-  @apply relative my-4 shadow-lg border border-base-300 rounded-lg overflow-hidden;
+  @apply relative my-4 shadow-lg rounded-lg overflow-hidden;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
 }
 
 .code-block-wrapper > div:first-child {
-  @apply bg-base-300/80 px-4 py-2.5 border-b border-base-300;
+  @apply px-4 py-2.5;
+  background-color: #161b22;
+  border-bottom: 1px solid #30363d;
 }
 
 .code-block-wrapper pre {
-  @apply m-0 bg-base-100 overflow-x-auto p-4;
+  @apply m-0 overflow-x-auto p-4;
+  background-color: #0d1117;
 }
 
 .code-block-wrapper pre code {
@@ -92,12 +100,18 @@ body {
   color: inherit;
 }
 
+.code-block-wrapper .lang-label {
+  color: #8b949e;
+}
+
 .copy-code-btn {
   @apply transition-all duration-200;
+  color: #8b949e;
 }
 
 .copy-code-btn:hover {
-  @apply bg-base-100;
+  background-color: #21262d;
+  color: #c9d1d9;
 }
 
 .copy-code-btn.btn-success {
@@ -133,5 +147,27 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.next-btn-pop {
+  animation: nextBtnPop 0.6s ease-out;
+}
+
+@keyframes nextBtnPop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0.5);
+  }
+  30% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px hsl(var(--p) / 0.35);
+  }
+  60% {
+    transform: scale(0.97);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--p) / 0);
   }
 }
