@@ -30,7 +30,25 @@ Many teams store secrets as [CI/CD variables](https://docs.gitlab.com/ci/variabl
 
 ### Prepare the Tooling
 
-This scenario uses Pipeleek. If you haven't already, complete the "Tooling Setup" step in Scenario 00 to configure it with a Personal Access Token before continuing.
+From the lab root, run: `make shell` This opens a shell in the pentester container.
+
+Then  create a new  Personal Access Token in the GitLab UI: 
+1. Go to http://localhost:7700 > User Settings > Access > Personal Access Tokens
+2. Set the Scopes: api, read_api, read_repository
+3. Then add the created token to under the `token` key in the Pipeleek config file `~/.config/pipeleek/pipeleek.yaml`
+
+```bash
+# edit the config file
+vim ~/.config/pipeleek/pipeleek.yaml
+
+# Modify the content and add the PAT you've generated before
+gitlab:
+  url: http://gitlab
+  token: glpat-3qXyv3VI_nWJ8uin5ucy6m86MQp1OjIH.01.[example]
+
+# Test its working
+pipeleek enum
+```
 
 ### Find the Flag
 
