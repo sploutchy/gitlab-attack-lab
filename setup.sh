@@ -214,19 +214,22 @@ fi
 # environment), and silently swallowing that failure previously caused
 # a confusing ModuleNotFoundError later instead of a clear pip error.
 VENV_DIR="$PROJECT_ROOT/.venv"
-if [ ! -d "$VENV_DIR" ] && ! python3 -m venv "$VENV_DIR" 2>/tmp/gitlab-setup-venv.log; then
-    echo -e "${YELLOW}  •${NC} python3-venv not available, installing..."
-    if ! { apt-get update && apt-get install -y python3-venv; } >/tmp/gitlab-setup-venv-apt.log 2>&1; then
-        echo -e "${RED}✗${NC} Failed to create Python virtualenv: python3-venv is missing and could not be installed automatically"
-        echo -e "${YELLOW}   This requires root. Install it manually with: sudo apt-get install python3-venv${NC}"
-        tail -n 20 /tmp/gitlab-setup-venv-apt.log || true
-        exit 1
-    fi
+if [ ! -x "$VENV_DIR/bin/pip3" ]; then
     rm -rf "$VENV_DIR"
-    if ! python3 -m venv "$VENV_DIR"; then
-        echo -e "${RED}✗${NC} Failed to create Python virtualenv"
-        cat /tmp/gitlab-setup-venv.log 2>/dev/null || true
-        exit 1
+    if ! python3 -m venv "$VENV_DIR" 2>/tmp/gitlab-setup-venv.log; then
+        echo -e "${YELLOW}  •${NC} python3-venv not available, installing..."
+        if ! { apt-get update && apt-get install -y python3-venv; } >/tmp/gitlab-setup-venv-apt.log 2>&1; then
+            echo -e "${RED}✗${NC} Failed to create Python virtualenv: python3-venv is missing and could not be installed automatically"
+            echo -e "${YELLOW}   This requires root. Install it manually with: sudo apt-get install python3-venv${NC}"
+            tail -n 20 /tmp/gitlab-setup-venv-apt.log || true
+            exit 1
+        fi
+        rm -rf "$VENV_DIR"
+        if ! python3 -m venv "$VENV_DIR"; then
+            echo -e "${RED}✗${NC} Failed to create Python virtualenv"
+            cat /tmp/gitlab-setup-venv.log 2>/dev/null || true
+            exit 1
+        fi
     fi
 fi
 export PATH="$VENV_DIR/bin:$PATH"
