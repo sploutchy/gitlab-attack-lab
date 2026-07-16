@@ -2,6 +2,13 @@
 
 A containerized GitLab pentesting lab for learning and practicing GitLab CI/CD security vulnerabilities with [Pipeleek](https://github.com/CompassSecurity/pipeleek).
 
+## Prerequisites
+
+- **Docker**, with the daemon running
+- **Docker Compose v2** (the `docker compose` CLI plugin subcommand)
+
+  `docker-compose.yml` uses a `develop:` key that is only supported by Compose v2. The older standalone `docker-compose` v1 binary cannot parse this file and will fail with `Unsupported config option for services.lab-web: 'develop'`. Verify with `docker compose version`; see the [Compose install docs](https://docs.docker.com/compose/install/) if it's missing.
+
 ## 🚀 Quick Start
 
 ### 1. Start the Lab
