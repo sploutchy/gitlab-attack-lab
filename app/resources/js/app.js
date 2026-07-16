@@ -43,17 +43,17 @@ function wrapAndEnhanceCodeBlocks() {
         }
 
         const wrapper = document.createElement('div');
-        wrapper.className = 'code-block-wrapper relative bg-base-200 border border-base-300 rounded-lg overflow-hidden shadow-md my-4';
+        wrapper.className = 'code-block-wrapper relative rounded-lg overflow-hidden shadow-md my-4';
 
         const header = document.createElement('div');
-        header.className = 'flex items-center justify-between bg-base-300 px-4 py-2';
+        header.className = 'flex items-center justify-between px-4 py-2';
 
         const langLabel = document.createElement('span');
-        langLabel.className = 'text-xs font-mono font-semibold text-base-content/60';
+        langLabel.className = 'lang-label text-xs font-mono font-semibold';
         langLabel.textContent = language;
 
         const copyBtn = document.createElement('button');
-        copyBtn.className = 'copy-code-btn btn btn-xs btn-ghost gap-1 hover:bg-base-100 transition-all';
+        copyBtn.className = 'copy-code-btn btn btn-xs btn-ghost gap-1 transition-all';
         copyBtn.title = 'Copy code to clipboard';
         copyBtn.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-4 h-4 stroke-current">
