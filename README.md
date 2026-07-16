@@ -5,9 +5,9 @@ A containerized GitLab pentesting lab for learning and practicing GitLab CI/CD s
 ## Prerequisites
 
 - **Docker**, with the daemon running
-- **`docker-compose`** (the standalone v1 binary) available on your `PATH`
+- **Docker Compose v2** (the `docker compose` CLI plugin subcommand)
 
-  This lab's `Makefile` and `setup.sh` invoke `docker-compose` directly rather than the newer `docker compose` v2 CLI plugin subcommand. If your system only has Compose v2 (i.e. `docker compose version` works but `docker-compose version` does not), install the standalone [`docker-compose`](https://docs.docker.com/compose/install/standalone/) binary before running `make setup`.
+  `docker-compose.yml` uses a `develop:` key that is only supported by Compose v2. The older standalone `docker-compose` v1 binary cannot parse this file and will fail with `Unsupported config option for services.lab-web: 'develop'`. Verify with `docker compose version`; see the [Compose install docs](https://docs.docker.com/compose/install/) if it's missing.
 
 ## 🚀 Quick Start
 
