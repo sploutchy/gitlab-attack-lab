@@ -2,6 +2,13 @@
 
 A containerized GitLab pentesting lab for learning and practicing GitLab CI/CD security vulnerabilities with [Pipeleek](https://github.com/CompassSecurity/pipeleek).
 
+## Prerequisites
+
+- **Docker**, with the daemon running
+- **`docker-compose`** (the standalone v1 binary) available on your `PATH`
+
+  This lab's `Makefile` and `setup.sh` invoke `docker-compose` directly rather than the newer `docker compose` v2 CLI plugin subcommand. If your system only has Compose v2 (i.e. `docker compose version` works but `docker-compose version` does not), install the standalone [`docker-compose`](https://docs.docker.com/compose/install/standalone/) binary before running `make setup`.
+
 ## 🚀 Quick Start
 
 ### 1. Start the Lab
