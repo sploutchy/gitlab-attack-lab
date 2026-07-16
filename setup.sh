@@ -70,7 +70,7 @@ echo ""
 # Step 1: Start Docker Compose services
 echo -e "${YELLOW}[STEP 1]${NC} Starting Docker Compose services..."
 cd "$PROJECT_ROOT"
-if ! docker-compose up -d >/tmp/gitlab-setup-compose-up.log 2>&1; then
+if ! docker compose up -d >/tmp/gitlab-setup-compose-up.log 2>&1; then
     echo -e "${RED}✗${NC} Failed to start Docker Compose services"
     tail -n 50 /tmp/gitlab-setup-compose-up.log || true
     exit 1
@@ -111,7 +111,7 @@ while true; do
     if [ "$ATTEMPT" -ge "$MAX_WAIT_SECONDS" ]; then
         echo -e "${RED}✗${NC} GitLab did not become reachable within ${MAX_WAIT_SECONDS}s"
         echo -e "${YELLOW}Recent GitLab logs:${NC}"
-        docker-compose logs --tail=80 gitlab || true
+        docker compose logs --tail=80 gitlab || true
         exit 1
     fi
     sleep 1
@@ -267,11 +267,11 @@ if [ $POPULATE_EXIT -eq 0 ]; then
         
         # Remove old runner containers to force recreation with new env vars
         echo -e "  Removing old runner containers..."
-        docker-compose rm -f gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1 || true
+        docker compose rm -f gitlab-runner-docker gitlab-runner-shell > /dev/null 2>&1 || true
         
         # Recreate runner containers with new tokens from .env
         echo -e "  Creating runner containers with new tokens..."
-        if ! docker-compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | tee /tmp/runner-create.log | grep -v "^$" > /dev/null; then
+        if ! docker compose up -d gitlab-runner-docker gitlab-runner-shell 2>&1 | tee /tmp/runner-create.log | grep -v "^$" > /dev/null; then
             echo -e "${YELLOW}  ⚠${NC}  Warning during runner container creation (see /tmp/runner-create.log)"
         fi
         
@@ -462,7 +462,7 @@ done
 
 if ! docker exec pentester true 2>/dev/null; then
     echo -e "${YELLOW}⚠${NC} Pentester container not responding, skipping configuration"
-    echo -e "${YELLOW}   You may need to manually run: docker-compose logs pentester${NC}"
+    echo -e "${YELLOW}   You may need to manually run: docker compose logs pentester${NC}"
 else
     # Create a dedicated pentester token for player workflows
     echo -e "  Creating pentester API token..."
@@ -580,9 +580,9 @@ if docker exec pentester true 2>/dev/null; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Entering pentester container...${NC}"
-        docker-compose exec -it pentester /bin/bash
+        docker compose exec -it pentester /bin/bash
     fi
 else
     echo -e "${YELLOW}⚠ Pentester container is not running.${NC}"
-    echo "  You can enter it later with: docker-compose exec -it pentester /bin/bash"
+    echo "  You can enter it later with: docker compose exec -it pentester /bin/bash"
 fi
