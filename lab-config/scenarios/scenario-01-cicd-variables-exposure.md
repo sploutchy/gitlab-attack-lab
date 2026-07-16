@@ -20,7 +20,7 @@ hints:
 
 ## Objective
 
-Identify how secrets can be exposed in CI/CD pipeline logs, get know Pipleek and its configuration and extract the flag.
+Identify how secrets can be exposed in CI/CD pipeline logs, get to know Pipeleek and its configuration and extract the flag.
 
 ## Background
 
@@ -37,7 +37,7 @@ This scenario uses Pipeleek. If you haven't already, complete the "Tooling Setup
 [Pipeleek](https://github.com/CompassSecurity/pipeleek) is a tool which can be used to search for secrets in CI/CD pipeline logs in an automated way. We can use it to find the flag hidden in some job output log.
 
 
-> Pipleek does not detect the flag format as secret by default, therefore we need to add a custom role to our Pipeleek secret rules configuration.
+> Pipeleek does not detect the flag format as secret by default, therefore we need to add a custom rule to our Pipeleek secret rules configuration.
 
 Add the new custom rule to the `rules.yml` file
 ```bash
