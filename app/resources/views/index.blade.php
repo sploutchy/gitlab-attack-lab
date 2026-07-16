@@ -94,18 +94,5 @@
         @endforelse
     </div>
 
-    <!-- Getting Started -->
-    <div class="divider my-12"></div>
-    
-    <div class="bg-base-200 rounded-lg p-8">
-        <h2 class="text-2xl font-bold mb-4">🎯 How to Use</h2>
-        <ol class="list-decimal list-inside space-y-3">
-            <li>Select a scenario from the list above</li>
-            <li>Read the scenario description and objectives</li>
-            <li>Follow the steps to find flags in the GitLab instance</li>
-            <li>Submit flags using the form at the bottom of the scenario page</li>
-            <li>Verify your flags and progress</li>
-        </ol>
-    </div>
 </div>
 @endsection
